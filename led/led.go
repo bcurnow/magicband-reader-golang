@@ -4,21 +4,33 @@ import (
 	"time"
 
 	ws2811 "github.com/rpi-ws281x/rpi-ws281x-go"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
-	defaultBrightness = 64
-	defaultOuterRing  = 40
-	defaultInnerRing  = 15
+	defaultBrightness    = 64
+	defaultOuterRingSize = 40
+	defaultInnerRingSize = 15
 )
 
-type Controller struct {
+type Controller interface {
+	Blink(color LedColor, brightness int, iterations int, delay time.Duration) error
+	LightsOn(color LedColor, brightness int) error
+	FadeOn(color LedColor, brightness int, delay time.Duration) error
+	LightsOff() error
+	FadeOff(delay time.Duration) error
+	ColorChase(color LedColor, brightness int, delay time.Duration, reverse bool, effectLength int) error
+	Spin(color LedColor, brightness int, reverse bool, effectLength int) error
+	Close()
+}
+
+type controller struct {
 	// The brightness of the pixels between 0 and 255 (0 = off)
 	Brightness int
 	// The number of LEDs in the outer ring
-	OuterRing int
+	OuterRingSize int
 	// The number of LEDs in the inner rignt
-	InnerRing int
+	InnerRingSize int
 	// The type of strip, one of the WS2811StripXXX constants from ws2818
 	StripType int
 	// The ws2811 instance pointer
@@ -27,66 +39,47 @@ type Controller struct {
 	currentBrightness int
 }
 
-func (c *Controller) Init() error {
+func NewController(brightness int, outerRingSize int, innerRingSize int, stripType int) (*controller, error) {
+	log.Debug("Creating new led.Controller")
+	c := controller{
+		Brightness:    brightness,
+		OuterRingSize: outerRingSize,
+		InnerRingSize: innerRingSize,
+		StripType:     stripType,
+	}
 	c.handleDefaults()
+
 	opt := ws2811.DefaultOptions
 	opt.Channels[0].StripeType = c.StripType
 	opt.Channels[0].Brightness = c.Brightness
-	opt.Channels[0].LedCount = c.OuterRing + c.InnerRing
+	opt.Channels[0].LedCount = c.OuterRingSize + c.InnerRingSize
 
 	dev, err := ws2811.MakeWS2811(&opt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	dev.Init()
 	c.strip = dev
-	if err := c.startupSequence(); err != nil {
-		return err
-	}
-	return nil
+	c.strip.Init()
+	return &c, nil
 }
 
-func (c *Controller) handleDefaults() {
-	if c.Brightness == 0 {
-		c.Brightness = defaultBrightness
-	}
-
-	if c.OuterRing == 0 {
-		c.OuterRing = defaultOuterRing
-	}
-
-	if c.InnerRing == 0 {
-		c.InnerRing = defaultInnerRing
-	}
-
-	if c.StripType == 0 {
-		c.StripType = ws2811.WS2812Strip
-	}
-}
-
-/** Fini should be called to ensure that the controller properly shuts down the LED strip
+/** Close should be called to ensure that the controller properly shuts down the LED strip
  *  For example:
  *		c.Init()
- *		defer c.Fini()
+ *		defer c.Close()
  **/
-func (c *Controller) Fini() {
+func (c *controller) Close() {
+	log.Debug("Closing led.Controller")
 	if c.strip != nil {
 		c.strip.Fini()
 	}
 }
 
-func (c *Controller) startupSequence() error {
-	if err := c.Blink(WHITE, defaultBrightness, 2, 500*time.Millisecond); err != nil {
-		return err
-	}
-	return nil
-}
-
 /**
  *  Blink implements a blink effect by on and of the lights
  */
-func (c *Controller) Blink(color LedColor, brightness int, iterations int, delay time.Duration) error {
+func (c *controller) Blink(color LedColor, brightness int, iterations int, delay time.Duration) error {
 	for i := 0; i < iterations; i++ {
 		if err := c.LightsOn(color, brightness); err != nil {
 			return err
@@ -102,7 +95,7 @@ func (c *Controller) Blink(color LedColor, brightness int, iterations int, delay
 	return nil
 }
 
-func (c *Controller) LightsOn(color LedColor, brightness int) error {
+func (c *controller) LightsOn(color LedColor, brightness int) error {
 	c.setBrightness(brightness)
 	c.fill(color)
 	if err := c.strip.Render(); err != nil {
@@ -111,7 +104,7 @@ func (c *Controller) LightsOn(color LedColor, brightness int) error {
 	return nil
 }
 
-func (c *Controller) FadeOn(color LedColor, brightness int, delay time.Duration) error {
+func (c *controller) FadeOn(color LedColor, brightness int, delay time.Duration) error {
 	c.fill(color)
 
 	for currentBrightness := 1; currentBrightness <= brightness; currentBrightness++ {
@@ -124,7 +117,7 @@ func (c *Controller) FadeOn(color LedColor, brightness int, delay time.Duration)
 	return nil
 }
 
-func (c *Controller) LightsOff() error {
+func (c *controller) LightsOff() error {
 	c.fill(0)
 	if err := c.strip.Render(); err != nil {
 		return err
@@ -132,7 +125,7 @@ func (c *Controller) LightsOff() error {
 	return nil
 }
 
-func (c *Controller) FadeOff(delay time.Duration) error {
+func (c *controller) FadeOff(delay time.Duration) error {
 	for currentBrightness := c.currentBrightness; currentBrightness >= 0; currentBrightness-- {
 		c.setBrightness(currentBrightness)
 		if err := c.strip.Render(); err != nil {
@@ -146,15 +139,15 @@ func (c *Controller) FadeOff(delay time.Duration) error {
 	return nil
 }
 
-func (c *Controller) ColorChase(color LedColor, brightness int, delay time.Duration, reverse bool, effectLength int) error {
+func (c *controller) ColorChase(color LedColor, brightness int, delay time.Duration, reverse bool, effectLength int) error {
 	c.setBrightness(brightness)
 	var on int = 0
 	var off int = 0
-	for i := 0; i < c.OuterRing+effectLength+1; i++ {
-		if i <= c.OuterRing {
+	for i := 0; i < c.OuterRingSize+effectLength+1; i++ {
+		if i <= c.OuterRingSize {
 			on = i
 			if reverse {
-				on = c.OuterRing - on
+				on = c.OuterRingSize - on
 			}
 			c.setLedColor(on, color)
 		}
@@ -162,7 +155,7 @@ func (c *Controller) ColorChase(color LedColor, brightness int, delay time.Durat
 		if i >= effectLength {
 			off = i - effectLength
 			if reverse {
-				off = c.OuterRing - off
+				off = c.OuterRingSize - off
 			}
 			c.setLedColor(off, 0)
 		}
@@ -170,14 +163,14 @@ func (c *Controller) ColorChase(color LedColor, brightness int, delay time.Durat
 		if err := c.strip.Render(); err != nil {
 			return err
 		}
-		if i < c.OuterRing+effectLength {
+		if i < c.OuterRingSize+effectLength {
 			time.Sleep(delay)
 		}
 	}
 	return nil
 }
 
-func (c *Controller) Spin(color LedColor, brightness int, reverse bool, effectLength int) error {
+func (c *controller) Spin(color LedColor, brightness int, reverse bool, effectLength int) error {
 	c.ColorChase(color, brightness, 10000*time.Microsecond, reverse, effectLength)
 	c.ColorChase(color, brightness, 5000*time.Microsecond, reverse, effectLength)
 	c.ColorChase(color, brightness, 2500*time.Microsecond, reverse, effectLength)
@@ -185,17 +178,35 @@ func (c *Controller) Spin(color LedColor, brightness int, reverse bool, effectLe
 	return nil
 }
 
-func (c *Controller) setLedColor(led int, color LedColor) {
+func (c *controller) handleDefaults() {
+	if c.Brightness == 0 {
+		c.Brightness = defaultBrightness
+	}
+
+	if c.OuterRingSize == 0 {
+		c.OuterRingSize = defaultOuterRingSize
+	}
+
+	if c.InnerRingSize == 0 {
+		c.InnerRingSize = defaultInnerRingSize
+	}
+
+	if c.StripType == 0 {
+		c.StripType = ws2811.WS2812Strip
+	}
+}
+
+func (c *controller) setLedColor(led int, color LedColor) {
 	c.strip.Leds(0)[led] = uint32(color)
 }
 
-func (c *Controller) fill(color LedColor) {
+func (c *controller) fill(color LedColor) {
 	for i := range c.strip.Leds(0) {
 		c.setLedColor(i, color)
 	}
 }
 
-func (c *Controller) setBrightness(brightness int) {
+func (c *controller) setBrightness(brightness int) {
 	c.strip.SetBrightness(0, brightness)
 	c.currentBrightness = brightness
 }
