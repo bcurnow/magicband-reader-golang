@@ -7,27 +7,39 @@ import (
 	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/beep/wav"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
 	defaultBase = 2
 )
 
-type Controller struct {
+type Controller interface {
+	Load(soundFile string) (beep.Streamer, error)
+	Play(streamer beep.Streamer)
+}
+
+type controller struct {
 	sampleRate beep.SampleRate
 	Volume     float64
 	Base       float64
 }
 
-func (c *Controller) Load(soundFile string) (beep.Streamer, error) {
+func NewController(volume float64, base float64) (*controller, error) {
+	log.Debug("Creating new audio.Controller")
+	c := controller{
+		Volume: volume,
+		Base:   base,
+	}
+	c.handleDefaults()
+	return &c, nil
+}
+
+func (c *controller) Load(soundFile string) (beep.Streamer, error) {
 	f, err := os.Open(soundFile)
 	if err != nil {
 		return nil, err
 	}
-
-	// For the beep library, they don't recommend closing the file yourself
-	// streamer.Close() (below) will take care of it
-	// defer f.Close()
 
 	wavStreamer, format, err := wav.Decode(f)
 	if err != nil {
@@ -68,7 +80,7 @@ func (c *Controller) Load(soundFile string) (beep.Streamer, error) {
 	return volume, nil
 }
 
-func (c *Controller) Play(streamer beep.Streamer) {
+func (c *controller) Play(streamer beep.Streamer) {
 	done := make(chan bool)
 	speaker.Play(beep.Seq(streamer, beep.Callback(func() {
 		done <- true
@@ -76,12 +88,7 @@ func (c *Controller) Play(streamer beep.Streamer) {
 	<-done
 }
 
-func (c *Controller) Init() error {
-	c.handleDefaults()
-	return nil
-}
-
-func (c *Controller) handleDefaults() {
+func (c *controller) handleDefaults() {
 	if c.Base == 0 {
 		c.Base = defaultBase
 	}
