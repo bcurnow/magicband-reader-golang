@@ -4,8 +4,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
+	"net/url"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -13,38 +17,37 @@ import (
 	"github.com/peterbourgon/ff/v3/ffyaml"
 )
 
-type configuration struct {
-	ApiKey            string
-	ApiSSLVerify      string
-	ApiURL            string
-	AuthorizedSound   string
-	Brightness        int
-	ConfigFile        string
-	InnerRingSize     int
-	LogLevel          log.Level
-	OuterRingSize     int
-	Permission        string
-	PortNumber        int
-	ReadSound         string
-	SoundDir          string
-	UnauthorizedSound string
-	VolumeLevel       float64
-}
-
-var Values configuration
+var (
+	ApiKey               string
+	ApiUrl               *url.URL
+	AuthorizedSound      string
+	Brightness           int
+	CaCertFile           string
+	ConfigFile           string
+	InnerRingSize        int
+	OuterRingSize        int
+	Permission           string
+	PortNumber           int
+	ReadSound            string
+	SoundDir             string
+	UnauthorizedSound    string
+	ValidateCertificates bool
+	VolumeLevel          float64
+)
 
 func init() {
 	fs := flag.NewFlagSet("magicband-reader", flag.ExitOnError)
 	var (
 		apiKey            = fs.String("api-key", "", "The API key to authenticate to rfid-security-svc")
 		apiSSLVerify      = fs.String("api-ssl-verify", "ca.pem", "If 'True' or a valid file reference, performs SSL validation, if false, skips validation (this is insecure!).")
-		apiURL            = fs.String("api-url", "https://localhost:5000/api/v1.0", "The rfid-security-svc base URL.")
+		apiUrl            = fs.String("api-url", "https://localhost:5000/api/v1.0", "The rfid-security-svc base URL.")
 		authorizedSound   = fs.String("authorized-sound", "authorized.wav", "The name of the sound file played when a band is authorized (relative to sound-dir).")
 		brightness        = fs.Int("brightness", 100, "The brightness level of the LEDs. Range of 0 to 255 inclusive")
 		configFile        = fs.String("config-file", "/etc/magicband-reader/magicband-reader.yaml", "The YAML configuration file to load.")
-		innerRingSize     = fs.Int("inner-ring-size", 10, "The number of LEDs that make up the inner ring.")
+		innerRingSize     = fs.Int("inner-ring-size", 20, "The number of LEDs that make up the inner ring.")
 		logLevel          = fs.String("log-level", "warning", "One of: debug, info, warning, error fatal.")
-		outerRingSize     = fs.Int("outer-ring-size", 10, "The number of LEDs that make up the outer ring.")
+		logReportCaller   = fs.Bool("log-report-caller", false, "Includes the calling function, file, and line number (caller) in log lines. Only works when log-level = trace")
+		outerRingSize     = fs.Int("outer-ring-size", 40, "The number of LEDs that make up the outer ring.")
 		permission        = fs.String("permission", "Open Door", "The name of the permission to validate before authorizing.")
 		portNumber        = fs.Int("port-number", 8080, "The port number to listen for requests for UID (e.g. from rfid-security-svc)")
 		readSound         = fs.String("read-sound", "read.wav", "The name of the sound file played when a band is read (relative to sound-dir).")
@@ -62,90 +65,107 @@ func init() {
 		panic(err)
 	}
 
-	Values = configuration{
-		ApiKey:            *apiKey,
-		ApiSSLVerify:      *apiSSLVerify,
-		ApiURL:            *apiURL,
-		AuthorizedSound:   *authorizedSound,
-		Brightness:        *brightness,
-		ConfigFile:        *configFile,
-		InnerRingSize:     *innerRingSize,
-		OuterRingSize:     *outerRingSize,
-		Permission:        *permission,
-		PortNumber:        *portNumber,
-		ReadSound:         *readSound,
-		SoundDir:          *soundDir,
-		UnauthorizedSound: *unauthorizedSound,
-		VolumeLevel:       *volumeLevel,
+	validateCertificates, err := isBool(*apiSSLVerify)
+	if err != nil {
+		// This is not a boolean, must be a file
+		if err := validateFileExists(*apiSSLVerify, "api-ssl-verify"); err != nil {
+			panic(err)
+		}
 	}
 
-	if err := Values.validate(*logLevel); err != nil {
+	url, err := url.Parse(ensureEndsWith(*apiUrl, "/"))
+	if err != nil {
 		panic(err)
 	}
 
-	Values.configureLog()
+	ApiKey = *apiKey
+	ApiUrl = url
+	AuthorizedSound = *authorizedSound
+	Brightness = *brightness
+	CaCertFile = *apiSSLVerify
+	ConfigFile = *configFile
+	InnerRingSize = *innerRingSize
+	OuterRingSize = *outerRingSize
+	Permission = *permission
+	PortNumber = *portNumber
+	ReadSound = *readSound
+	SoundDir = *soundDir
+	UnauthorizedSound = *unauthorizedSound
+	VolumeLevel = *volumeLevel
+	ValidateCertificates = validateCertificates
 
-	log.Debug(fmt.Sprintf("api-key: %v", Values.ApiKey))
-	log.Debug(fmt.Sprintf("api-ssl-verify: %v", Values.ApiSSLVerify))
-	log.Debug(fmt.Sprintf("api-url: %v", Values.ApiURL))
-	log.Debug(fmt.Sprintf("authorized-sound: %v", Values.AuthorizedSound))
-	log.Debug(fmt.Sprintf("brightness: %v", Values.Brightness))
-	log.Debug(fmt.Sprintf("Config.nfig-file: %v", Values.ConfigFile))
-	log.Debug(fmt.Sprintf("inner-ring-size: %v", Values.InnerRingSize))
-	log.Debug(fmt.Sprintf("log-level: %v", Values.LogLevel))
-	log.Debug(fmt.Sprintf("outer-ring-size: %v", Values.OuterRingSize))
-	log.Debug(fmt.Sprintf("permission: %v", Values.Permission))
-	log.Debug(fmt.Sprintf("port-number: %v", Values.PortNumber))
-	log.Debug(fmt.Sprintf("read-sound: %v", Values.ReadSound))
-	log.Debug(fmt.Sprintf("sound-dir: %v", Values.SoundDir))
-	log.Debug(fmt.Sprintf("unauthorized-sound: %v", Values.UnauthorizedSound))
-	log.Debug(fmt.Sprintf("volume-level: %v", Values.VolumeLevel))
-}
-
-func (c *configuration) validate(logLevel string) error {
-	if err := c.validateFileExists(path.Join(c.SoundDir, c.AuthorizedSound), "authorized-sound"); err != nil {
-		return err
-	}
-
-	if err := c.validateIntRange(c.Brightness, 0, 255, "brightness"); err != nil {
-		return err
-	}
-
-	level, err := c.validateLogLevel(logLevel, "log-level")
+	level, err := validate(*logLevel)
 	if err != nil {
-		return err
-	}
-	c.LogLevel = level
-
-	if err := c.validateFileExists(path.Join(c.SoundDir, c.ReadSound), "read-sound"); err != nil {
-		return err
+		panic(err)
 	}
 
-	if err := c.validateFileExists(c.SoundDir, "sound-dir"); err != nil {
-		return err
-	}
-
-	if err := c.validateFileExists(path.Join(c.SoundDir, c.UnauthorizedSound), "unauthorized-sound"); err != nil {
-		return err
-	}
-	return nil
+	configureLog(level, *logReportCaller)
+	logConfig(*configFile, level, *logReportCaller)
 }
 
-func (c *configuration) validateIntRange(value int, low int, high int, name string) error {
+func logConfig(configFile string, level log.Level, logReportCaller bool) {
+	log.Debug("api-key: <redacted>")
+	log.Debugf("api-ssl-verify: %v", CaCertFile)
+	log.Debugf("api-url: %v", ApiUrl)
+	log.Debugf("authorized-sound: %v", AuthorizedSound)
+	log.Debugf("brightness: %v", Brightness)
+	log.Debugf("config-file: %v", configFile)
+	log.Debugf("inner-ring-size: %v", InnerRingSize)
+	log.Debugf("log-level: %v", level)
+	log.Debugf("log-report-caller: %v", logReportCaller)
+	log.Debugf("outer-ring-size: %v", OuterRingSize)
+	log.Debugf("permission: %v", Permission)
+	log.Debugf("port-number: %v", PortNumber)
+	log.Debugf("read-sound: %v", ReadSound)
+	log.Debugf("sound-dir: %v", SoundDir)
+	log.Debugf("unauthorized-sound: %v", UnauthorizedSound)
+	log.Debugf("volume-level: %v", VolumeLevel)
+}
+
+func validate(logLevel string) (log.Level, error) {
+	if err := validateFileExists(path.Join(SoundDir, AuthorizedSound), "authorized-sound"); err != nil {
+		return log.WarnLevel, err
+	}
+
+	if err := validateIntRange(Brightness, 0, 255, "brightness"); err != nil {
+		return log.WarnLevel, err
+	}
+
+	if err := validateFileExists(path.Join(SoundDir, ReadSound), "read-sound"); err != nil {
+		return log.WarnLevel, err
+	}
+
+	if err := validateFileExists(SoundDir, "sound-dir"); err != nil {
+		return log.WarnLevel, err
+	}
+
+	if err := validateFileExists(path.Join(SoundDir, UnauthorizedSound), "unauthorized-sound"); err != nil {
+		return log.WarnLevel, err
+	}
+
+	level, err := validateLogLevel(logLevel, "log-level")
+	if err != nil {
+		return log.WarnLevel, err
+	}
+
+	return level, nil
+}
+
+func validateIntRange(value int, low int, high int, name string) error {
 	if value < low || value > high {
 		return errors.New(fmt.Sprintf("Invalid value for %v: '%v'. Must be between %v and %v inclusive.", name, value, low, high))
 	}
 	return nil
 }
 
-func (c *configuration) validateFileExists(file string, name string) error {
-	if _, err := os.Stat(file); err != nil {
+func validateFileExists(file string, name string) error {
+	if _, err := os.Stat(file); errors.Is(err, fs.ErrNotExist) {
 		return errors.New(fmt.Sprintf("Invalid value for %v: '%v'. %v", name, file, err))
 	}
 	return nil
 }
 
-func (c *configuration) validateLogLevel(level string, name string) (log.Level, error) {
+func validateLogLevel(level string, name string) (log.Level, error) {
 	logLevel, err := log.ParseLevel(level)
 	if err != nil {
 		return 0, errors.New(fmt.Sprintf("Invalid value for %v: '%v'. %v", name, level, err))
@@ -153,11 +173,30 @@ func (c *configuration) validateLogLevel(level string, name string) (log.Level, 
 	return logLevel, err
 }
 
-func (c *configuration) configureLog() {
-	log.SetLevel(c.LogLevel)
+func configureLog(level log.Level, reportCaller bool) {
+	log.SetLevel(level)
 	log.SetFormatter(&log.TextFormatter{
 		DisableLevelTruncation: true,
 		PadLevelText:           true,
 		FullTimestamp:          true,
+		TimestampFormat:        "2006-01-02 15:04:05.000 -0700",
 	})
+	if level == log.TraceLevel {
+		log.SetReportCaller(reportCaller)
+	}
+}
+
+func ensureEndsWith(str string, suffix string) string {
+	if strings.HasSuffix(str, suffix) {
+		return suffix
+	}
+	return str + suffix
+}
+
+func isBool(str string) (bool, error) {
+	result, err := strconv.ParseBool(str)
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("String '%v' is not a boolean value", str))
+	}
+	return result, nil
 }
