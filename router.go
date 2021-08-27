@@ -13,7 +13,7 @@ import (
 	"github.com/bcurnow/magicband-reader/config"
 	readerctx "github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
-	"github.com/bcurnow/magicband-reader/handler"
+	_ "github.com/bcurnow/magicband-reader/handler"
 )
 
 type Router interface {
@@ -139,7 +139,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *router) handle(event event.Event) error {
-	for _, h := range handler.Sorted() {
+	for _, h := range readerctx.SortedHandlers() {
 		log.Tracef("%T", h)
 		if err := h.Handle(event); err != nil {
 			return err
