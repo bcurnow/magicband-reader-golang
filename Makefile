@@ -6,6 +6,7 @@ imageName := $(notdir $(patsubst %/,%,$(dir $(currentDir))))
 rootDir := $(abspath ${currentDir}../../../../)
 currentUser := $(shell id -u)
 currentGroup := $(shell id -g)
+binaryName := magicband-reader
 
 build-docker:
 	docker buildx build --no-cache \
@@ -15,26 +16,21 @@ build-docker:
 	  -t ${imageName}:latest  \
 	  ${currentDir}
 
-bd: build-docker
-
 run-docker:
 	docker run --platform linux/arm/v6 -it --privileged --mount src=/dev,target=/dev,type=bind --mount src=${currentDir}sounds,target=/sounds,type=bind --mount src="${rootDir}",target=/go,type=bind ${imageName}:latest /bin/bash
 
-rd: run-docker
+dev: run-docker
 
 build:
 	# Build for armv6 (which is what the RPi0 has)
 	# Also, d2xx doesn't work with CGO_ENABLED so set the build flag to skip it, we don't use that driver
-	env GOARCH=arm GOOS=linux GOARM=6 CGO_ENABLED=1 go build -tags no_d2xx -o bin/${imageName}
+	env GOARCH=arm GOOS=linux GOARM=6 CGO_ENABLED=1 go build -tags no_d2xx -o bin/${binaryName}
 
 format:
 	gofmt -l -w -s .
 
-sudo:
-	sudo bin/${imageName}
-
-sudodb:
-	sudo bin/${imageName} --log-level debug
+run:
+	sudo bin/${binaryName} ${READER_ARGS}
 
 tidy:
 	go mod tidy
@@ -44,4 +40,4 @@ local: clear tidy format build
 clear:
 	clear
 
-lr: local sudo
+lr: local run
