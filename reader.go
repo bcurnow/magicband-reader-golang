@@ -129,7 +129,7 @@ func (r *reader) UID(timeout time.Duration) (string, error) {
 				}
 
 				if err.Error() == "mfrc522 lowlevel: IRQ error" {
-					// I have no idea why this error is sometimes generate, it happens when there's not even a card to trigger the reading
+					// I have no idea why this error is sometimes generated, it happens when there's not even a card to trigger the reading
 					// I don't have time to debug and it actually doesn't appear to happen very often or impact future reading so I'm just
 					// going to return here and hope for the best until such time as I can debug more in depth
 					//TODO why is this necessary?
