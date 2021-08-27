@@ -20,7 +20,7 @@ type Controller interface {
 	LightsOff() error
 	FadeOff(delay time.Duration) error
 	ColorChase(color LedColor, brightness int, delay time.Duration, reverse bool, effectLength int) error
-	Spin(color LedColor, brightness int, reverse bool, effectLength int) error
+	Spin(color LedColor, brightness int, reverse bool, effectLength int, stop <-chan bool) error
 	Close()
 }
 
@@ -40,7 +40,7 @@ type controller struct {
 }
 
 func NewController(brightness int, outerRingSize int, innerRingSize int, stripType int) (*controller, error) {
-	log.Debug("Creating new led.Controller")
+	log.Trace("Creating new led.Controller")
 	c := controller{
 		Brightness:    brightness,
 		OuterRingSize: outerRingSize,
@@ -70,10 +70,11 @@ func NewController(brightness int, outerRingSize int, innerRingSize int, stripTy
  *		defer c.Close()
  **/
 func (c *controller) Close() {
-	log.Debug("Closing led.Controller")
+	log.Trace("Closing led.Controller")
 	if c.strip != nil {
 		c.strip.Fini()
 	}
+	log.Trace("led.Controller closed")
 }
 
 /**
@@ -170,11 +171,22 @@ func (c *controller) ColorChase(color LedColor, brightness int, delay time.Durat
 	return nil
 }
 
-func (c *controller) Spin(color LedColor, brightness int, reverse bool, effectLength int) error {
-	c.ColorChase(color, brightness, 10000*time.Microsecond, reverse, effectLength)
-	c.ColorChase(color, brightness, 5000*time.Microsecond, reverse, effectLength)
+/*
+ * Spin will spin (ColorChase) 3 times at increasingly faster intervals and then continue to spin at the fastest
+ * interval until it receives on the stop channel.
+ */
+func (c *controller) Spin(color LedColor, brightness int, reverse bool, effectLength int, stop <-chan bool) error {
+	c.ColorChase(color, brightness, 10*time.Millisecond, reverse, effectLength)
+	c.ColorChase(color, brightness, 5*time.Millisecond, reverse, effectLength)
 	c.ColorChase(color, brightness, 2500*time.Microsecond, reverse, effectLength)
-	c.ColorChase(color, brightness, 1250*time.Microsecond, reverse, effectLength)
+	for {
+		select {
+		case <-stop:
+			return nil
+		default:
+			c.ColorChase(color, brightness, 1250*time.Microsecond, reverse, effectLength)
+		}
+	}
 	return nil
 }
 
