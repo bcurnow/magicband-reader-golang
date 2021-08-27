@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +11,12 @@ import (
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 	"github.com/bcurnow/magicband-reader/led"
+)
+
+const (
+	blinkBrightness = 64
+	blinkIterations = 2
+	blinkDelay      = 500 * time.Millisecond
 )
 
 func main() {
@@ -32,7 +37,8 @@ func main() {
 		osSignals := make(chan os.Signal, 1)
 		signal.Notify(osSignals, os.Interrupt, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
 		sig := <-osSignals
-		log.Debug(fmt.Sprintf("Received %v", sig))
+		log.Tracef("Received %v", sig)
+		close(osSignals)
 		router.Close()
 		reader.Close()
 		context.Close()
@@ -41,7 +47,7 @@ func main() {
 
 	//Blink the LED strip to indicate that the software is started and we're reading
 	//the UID
-	context.Current.LEDController.Blink(led.WHITE, 64, 2, 500*time.Millisecond)
+	context.LEDController.Blink(led.WHITE, blinkBrightness, blinkIterations, blinkDelay)
 	log.Info("Waiting for MagicBand...")
 	for !router.Closed() {
 		// Set a really long wait time
@@ -60,6 +66,7 @@ func main() {
 		}
 	}
 
+	log.Debug("Waiting for shutdown")
 	<-shutdown
 	log.Info("Shutdown complete")
 }
