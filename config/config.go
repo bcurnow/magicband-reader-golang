@@ -188,7 +188,7 @@ func configureLog(level log.Level, reportCaller bool) {
 
 func ensureEndsWith(str string, suffix string) string {
 	if strings.HasSuffix(str, suffix) {
-		return suffix
+		return str
 	}
 	return str + suffix
 }
