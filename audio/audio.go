@@ -1,9 +1,9 @@
 package audio
 
 import (
-	"github.com/faiface/beep"
 	"os"
 
+	"github.com/faiface/beep"
 	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/beep/wav"
@@ -26,7 +26,7 @@ type controller struct {
 }
 
 func NewController(volume float64, base float64) (*controller, error) {
-	log.Debug("Creating new audio.Controller")
+	log.Trace("Creating new audio.Controller")
 	c := controller{
 		Volume: volume,
 		Base:   base,
@@ -60,9 +60,9 @@ func (c *controller) Load(soundFile string) (beep.Streamer, error) {
 
 		// The examples show using the sample rate to determine the size of the buffer
 		// Because we need to support multiple, potentially user provided sound files
-		// We're going to choose a default buffer size (1K)  that should be sufficient
+		// We're going to choose a default buffer size (5K)  that should be sufficient
 		// to stream any of the files.
-		speaker.Init(format.SampleRate, 1024)
+		speaker.Init(format.SampleRate, 5*1024)
 	}
 
 	// Read the file into memory, these are very small files
