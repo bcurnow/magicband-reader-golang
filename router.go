@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/bcurnow/magicband-reader/config"
+	readerctx "github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 	"github.com/bcurnow/magicband-reader/handler"
 )
@@ -35,28 +36,32 @@ func NewRouter() (*router, error) {
 }
 
 func (r *router) Route(event event.Event) error {
+	log.Tracef("Starting Route, state: %#v", readerctx.State)
 	select {
 	case <-r.webRequestChannel:
 		// There is a web request waiting for an event
 		r.webChannel <- event
+		log.Tracef("Web Route complete, state: %#v", readerctx.State)
 		return nil
 	default:
 		// There is no web request waiting, send to handlers
 		r.handle(event)
+		log.Tracef("Default Route complete, state: %#v", readerctx.State)
 		return nil
 	}
 }
 
 func (r *router) Close() {
-	log.Debug("Closing Router")
+	log.Trace("Closing Router")
 	r.closed = true
-	log.Debug("Shutting down the server")
+	log.Trace("Shutting down the server")
 	if err := r.server.Shutdown(context.Background()); err != nil {
-		log.Error(fmt.Sprintf("Error during shutdown: %v", err))
+		log.Errorf("Error during shutdown: %v", err)
 	}
-	log.Debug("Server shutdown")
+	log.Trace("Server shutdown")
 	close(r.webChannel)
 	close(r.webRequestChannel)
+	log.Trace("Router closed")
 }
 
 func (r *router) Closed() bool {
@@ -79,16 +84,16 @@ func (r *router) createServer() *http.Server {
 			handleWebRequest(r, w, req)
 		})
 
-	address := fmt.Sprintf("localhost:%v", config.Values.PortNumber)
+	address := fmt.Sprintf("localhost:%v", config.PortNumber)
 	server := http.Server{
 		Addr:    address,
 		Handler: muxer,
 	}
 
 	go func() {
-		log.Info(fmt.Sprintf("Starting server on %v", address))
+		log.Infof("Starting server on %v", address)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error(fmt.Sprintf("Error during server startup: %v", err))
+			log.Errorf("Error during server startup: %v", err)
 		}
 	}()
 	return &server
@@ -105,7 +110,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
 	vars := req.URL.Query()
-	log.Debug(fmt.Sprintf("Received request with parameters: %v", vars))
+	log.Debugf("Received request with parameters: %v", vars)
 	if _, exists := vars["timeout"]; exists {
 		parsedInt, err := strconv.ParseInt(vars["timeout"][0], 0, 64)
 		if err != nil {
@@ -119,7 +124,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
-	log.Debug(fmt.Sprintf("Getting UID with timeout: %v", timeout))
+	log.Debugf("Getting UID with timeout: %v", timeout)
 	for {
 		select {
 		case <-timer.C:
@@ -135,7 +140,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 
 func (r *router) handle(event event.Event) error {
 	for _, h := range handler.Sorted() {
-		log.Debug(h)
+		log.Tracef("%T", h)
 		if err := h.Handle(event); err != nil {
 			return err
 		}
