@@ -28,7 +28,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := Register(10, &ReadSound{
+	if err := context.RegisterHandler(10, &ReadSound{
 		sound: sound,
 	}); err != nil {
 		panic(err)

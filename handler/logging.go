@@ -4,7 +4,13 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/bcurnow/magicband-reader/config"
+	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
+)
+
+const (
+	// TODO this should really be math.MaxInt but that constant wasn't introduced until golang 1.17
+	maxInt = int(^uint(0) >> 1)
 )
 
 type Logging struct{}
@@ -24,7 +30,7 @@ func (h *Logging) Handle(e event.Event) error {
 }
 
 func init() {
-	if err := Register(999, &Logging{}); err != nil {
+	if err := context.RegisterHandler(maxInt, &Logging{}); err != nil {
 		panic(err)
 	}
 }

@@ -24,7 +24,7 @@ func (h *Spin) Handle(e event.Event) error {
 }
 
 func init() {
-	if err := Register(11, &Spin{}); err != nil {
+	if err := context.RegisterHandler(11, &Spin{}); err != nil {
 		panic(err)
 	}
 }

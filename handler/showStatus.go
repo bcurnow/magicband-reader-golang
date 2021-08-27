@@ -15,18 +15,18 @@ func (h *ShowStatus) Handle(e event.Event) error {
 	switch e.Type() {
 	case event.AUTHORIZED:
 		runAsync("showStatus", func() {
-			context.LEDController.FadeOn(led.GREEN, ledBrightness, fadeEffectDuration)
+			context.LEDController.FadeOn(led.GREEN, ledBrightness, fadeEffectDelay)
 		})
 	case event.UNAUTHORIZED:
 		runAsync("showStatus", func() {
-			context.LEDController.FadeOn(led.BLUE, ledBrightness, fadeEffectDuration)
+			context.LEDController.FadeOn(led.BLUE, ledBrightness, fadeEffectDelay)
 		})
 	}
 	return nil
 }
 
 func init() {
-	if err := Register(30, &ShowStatus{}); err != nil {
+	if err := context.RegisterHandler(20, &ShowStatus{}); err != nil {
 		panic(err)
 	}
 }

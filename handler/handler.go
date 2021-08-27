@@ -1,69 +1,35 @@
+/*
+ * The handler package contains all the various steps in the MagicBand reader flow, the general approach is to break the flow into sections
+ * using a two digit number (e.g. priority 10 = section one, step zero, priority 11 = section one, step 1, priority 20 = section 2, step 0).
+ * The current flow is broken down as follows:
+ * Section One
+ *   10 - readSound
+ *   11 - spin
+ *   12 - authorize
+ *   13 - stopSpin
+ * Section Two
+ *   20 - showStatus
+ *   21 - authSound
+ *   22 - stopStatus
+ *
+ * There is also a handler at priority math.MaxInt which is designed to be the last step and will log the results.
+ */
 package handler
 
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/bcurnow/magicband-reader/context"
-	"github.com/bcurnow/magicband-reader/event"
 )
 
 const (
-	colorChaseWidth    = 8
-	reverseSpin        = true
-	ledBrightness      = 150
-	fadeEffectDuration = 10 * time.Millisecond
+	colorChaseWidth = 8
+	reverseSpin     = true
+	ledBrightness   = 150
+	fadeEffectDelay = 5 * time.Millisecond
 )
-
-type Handler interface {
-	Handle(event event.Event) error
-}
-
-var Handlers map[int]Handler
-
-func init() {
-	initMap()
-}
-
-func initMap() {
-	//TODO, this is dumb and only started happening when I added a handler that starts with a
-	//Golang runs them in file name order within a package <grrrr>
-	if Handlers == nil {
-		Handlers = make(map[int]Handler)
-	}
-}
-
-func Register(priority int, handler Handler) error {
-	initMap()
-	existingHandler, exists := Handlers[priority]
-
-	if exists {
-		return errors.New(fmt.Sprintf("Handler '%T' already registered with priority %v", existingHandler, priority))
-	}
-	Handlers[priority] = handler
-	log.Debugf("Handler '%T' registered with priority %v", handler, priority)
-	return nil
-}
-
-func Sorted() []Handler {
-	keys := make([]int, 0, len(Handlers))
-
-	for key := range Handlers {
-		keys = append(keys, key)
-	}
-
-	sort.Ints(keys)
-
-	sorted := make([]Handler, 0, len(Handlers))
-	for _, key := range keys {
-		sorted = append(sorted, Handlers[key])
-	}
-	return sorted
-}
 
 func runAsync(channelName string, f func()) error {
 	if _, exists := context.State[channelName]; exists {

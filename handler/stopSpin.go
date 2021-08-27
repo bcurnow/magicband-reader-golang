@@ -7,10 +7,10 @@ import (
 	"github.com/bcurnow/magicband-reader/event"
 )
 
-type WaitForSpin struct{}
+type StopSpin struct{}
 
-func (h *WaitForSpin) Handle(e event.Event) error {
-	log.Trace("Waiting for spin to stop")
+func (h *StopSpin) Handle(e event.Event) error {
+	log.Trace("Stopping the spin")
 	waitForAsync("readSoundPlaying")
 
 	// Make the spinning stop
@@ -24,7 +24,7 @@ func (h *WaitForSpin) Handle(e event.Event) error {
 }
 
 func init() {
-	if err := Register(20, &WaitForSpin{}); err != nil {
+	if err := context.RegisterHandler(13, &StopSpin{}); err != nil {
 		panic(err)
 	}
 }

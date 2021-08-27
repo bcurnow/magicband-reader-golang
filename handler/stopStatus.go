@@ -7,20 +7,20 @@ import (
 	"github.com/bcurnow/magicband-reader/event"
 )
 
-type WaitForAuthSound struct{}
+type StopStatus struct{}
 
-func (h *WaitForAuthSound) Handle(e event.Event) error {
+func (h *StopStatus) Handle(e event.Event) error {
 	log.Trace("Waiting for the auth sound to stop")
 	waitForAsync("authSoundPlaying")
 	waitForAsync("showStatus")
 
-	context.LEDController.FadeOff(fadeEffectDuration)
+	context.LEDController.FadeOff(fadeEffectDelay)
 	log.Trace("auth sound has stopped")
 	return nil
 }
 
 func init() {
-	if err := Register(32, &WaitForAuthSound{}); err != nil {
+	if err := context.RegisterHandler(22, &StopStatus{}); err != nil {
 		panic(err)
 	}
 }

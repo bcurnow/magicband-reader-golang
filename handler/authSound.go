@@ -42,7 +42,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := Register(31, &AuthSound{
+	if err := context.RegisterHandler(21, &AuthSound{
 		authSound:   authSound,
 		unauthSound: unauthSound,
 	}); err != nil {

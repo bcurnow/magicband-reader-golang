@@ -20,7 +20,7 @@ func (h *Authorize) Handle(e event.Event) error {
 }
 
 func init() {
-	if err := Register(12, &Authorize{}); err != nil {
+	if err := context.RegisterHandler(12, &Authorize{}); err != nil {
 		panic(err)
 	}
 }
