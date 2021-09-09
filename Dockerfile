@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && cmake --build . \
     && make install
 
-FROM golang:1.16-buster
+FROM golang:1.16-buster as dev_image
 
 COPY --from=lib_builder /usr/local/lib/libws2811.a /usr/local/lib/
 COPY --from=lib_builder /usr/local/include/ws2811 /usr/local/include/ws2811
@@ -48,3 +48,30 @@ RUN apt-get update \
 USER golang
 
 WORKDIR /go/src/github.com/bcurnow/magicband-reader-golang
+
+FROM dev_image as bin_builder
+USER root
+
+WORKDIR /build
+
+COPY . /build
+
+ENV GOARCH=arm
+ENV GOOS=linux
+ENV GOARM=6
+ENV CGO_ENABLED=1
+RUN go build -tags no_d2xx -o /build/magicband-reader
+
+FROM debian:buster-slim as prod_image
+USER root
+
+RUN apt-get update && apt-get -y install --no-install-recommends libasound2
+
+WORKDIR /magicband-reader
+
+COPY --from=bin_builder /build/magicband-reader /magicband-reader/
+COPY --from=bin_builder /build/ca.pem /magicband-reader/
+
+EXPOSE 9000
+
+CMD ["/magicband-reader/magicband-reader", "--listen-address", "0.0.0.0", "--listen-port", "9000"]
