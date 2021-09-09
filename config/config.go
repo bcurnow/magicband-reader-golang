@@ -25,9 +25,10 @@ var (
 	CaCertFile           string
 	ConfigFile           string
 	InnerRingSize        int
+	ListenAddress				 string
+	ListenPort           int
 	OuterRingSize        int
 	Permission           string
-	PortNumber           int
 	ReadSound            string
 	SoundDir             string
 	UnauthorizedSound    string
@@ -45,11 +46,12 @@ func init() {
 		brightness        = fs.Int("brightness", 100, "The brightness level of the LEDs. Range of 0 to 255 inclusive")
 		configFile        = fs.String("config-file", "/etc/magicband-reader/magicband-reader.yaml", "The YAML configuration file to load.")
 		innerRingSize     = fs.Int("inner-ring-size", 20, "The number of LEDs that make up the inner ring.")
-		logLevel          = fs.String("log-level", "warning", "One of: debug, info, warning, error fatal.")
+		listenAddress     = fs.String("listen-address", "localhost", "The address to listen on, since the listener has no security, it's not recommended to change this value.")
+		listenPort        = fs.Int("listen-port", 8080, "The port number to listen for requests for UID (e.g. from rfid-security-svc)")
+		logLevel          = fs.String("log-level", "info", "One of: debug, info, warning, error fatal.")
 		logReportCaller   = fs.Bool("log-report-caller", false, "Includes the calling function, file, and line number (caller) in log lines. Only works when log-level = trace")
 		outerRingSize     = fs.Int("outer-ring-size", 40, "The number of LEDs that make up the outer ring.")
 		permission        = fs.String("permission", "Open Door", "The name of the permission to validate before authorizing.")
-		portNumber        = fs.Int("port-number", 8080, "The port number to listen for requests for UID (e.g. from rfid-security-svc)")
 		readSound         = fs.String("read-sound", "read.wav", "The name of the sound file played when a band is read (relative to sound-dir).")
 		soundDir          = fs.String("sound-dir", "/sounds", "The directory containing the sound files.")
 		unauthorizedSound = fs.String("unauthorized-sound", "unauthorized.wav", "The name of the sound file played when a band is unauthorized (relative to sound-dir).")
@@ -85,9 +87,10 @@ func init() {
 	CaCertFile = *apiSSLVerify
 	ConfigFile = *configFile
 	InnerRingSize = *innerRingSize
+	ListenAddress = *listenAddress
+	ListenPort = *listenPort
 	OuterRingSize = *outerRingSize
 	Permission = *permission
-	PortNumber = *portNumber
 	ReadSound = *readSound
 	SoundDir = *soundDir
 	UnauthorizedSound = *unauthorizedSound
@@ -111,11 +114,12 @@ func logConfig(configFile string, level log.Level, logReportCaller bool) {
 	log.Debugf("brightness: %v", Brightness)
 	log.Debugf("config-file: %v", configFile)
 	log.Debugf("inner-ring-size: %v", InnerRingSize)
+	log.Debugf("listen-address: %v", ListenAddress)
+	log.Debugf("listen-port: %v", ListenPort)
 	log.Debugf("log-level: %v", level)
 	log.Debugf("log-report-caller: %v", logReportCaller)
 	log.Debugf("outer-ring-size: %v", OuterRingSize)
 	log.Debugf("permission: %v", Permission)
-	log.Debugf("port-number: %v", PortNumber)
 	log.Debugf("read-sound: %v", ReadSound)
 	log.Debugf("sound-dir: %v", SoundDir)
 	log.Debugf("unauthorized-sound: %v", UnauthorizedSound)
