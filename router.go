@@ -42,13 +42,12 @@ func (r *router) Route(event event.Event) error {
 		// There is a web request waiting for an event
 		r.webChannel <- event
 		log.Tracef("Web Route complete, state: %#v", readerctx.State)
-		return nil
 	default:
 		// There is no web request waiting, send to handlers
 		r.handle(event)
 		log.Tracef("Default Route complete, state: %#v", readerctx.State)
-		return nil
 	}
+	return nil
 }
 
 func (r *router) Close() {
@@ -71,7 +70,8 @@ func (r *router) Closed() bool {
 func (r *router) init() error {
 	r.server = r.createServer()
 	r.webChannel = make(chan event.Event)
-	r.webRequestChannel = make(chan bool)
+	// Use a single buffer to ensure that the first queue request makes it through
+	r.webRequestChannel = make(chan bool, 1)
 	return nil
 }
 
@@ -84,7 +84,7 @@ func (r *router) createServer() *http.Server {
 			handleWebRequest(r, w, req)
 		})
 
-	address := fmt.Sprintf("localhost:%v", config.PortNumber)
+	address := fmt.Sprintf("%v:%v", config.ListenAddress, config.ListenPort)
 	server := http.Server{
 		Addr:    address,
 		Handler: muxer,
@@ -103,14 +103,11 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	// Default timeout, 1 minute
 	timeout := 1 * time.Minute
 
-	// Indicate there is a web requst waiting
-	r.webRequestChannel <- true
-
 	// All response will be plain text
 	w.Header().Set("Content-Type", "text/plain")
 
 	vars := req.URL.Query()
-	log.Debugf("Received request with parameters: %v", vars)
+	log.Tracef("handleWebRequest: Received request with parameters: %v", vars)
 	if _, exists := vars["timeout"]; exists {
 		parsedInt, err := strconv.ParseInt(vars["timeout"][0], 0, 64)
 		if err != nil {
@@ -124,14 +121,28 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
-	log.Debugf("Getting UID with timeout: %v", timeout)
+	log.Debugf("handleWebRequest: Waiting for event with timeout: %v", timeout)
 	for {
 		select {
+		case r.webRequestChannel <- true:
+			// If there is no event being read, then the call above, outside a select,
+			// would be blocking which means the timeout logic won't work, adding it
+			// here means that we will eventually either send the request or timeout
+			log.Trace("handleWebRequest: Sent message on webRequestChannel")
 		case <-timer.C:
 			w.WriteHeader(http.StatusRequestTimeout)
 			w.Write([]byte(TimeoutError{}.Error()))
+			// Make sure to remove the request since no response can ever go back
+			select {
+			case <- r.webRequestChannel:
+				log.Trace("handleWebRequest: Cleared webRequestChannel")
+			default:
+				log.Trace("handleWebRequest: Nothing to clear from webRequestChannel")
+			}
+			log.Debug("handleWebRequest: Request timed out")
 			return
 		case event := <-r.webChannel:
+			log.Debugf("handleWebRequest: Returned '%v'", event.UID())
 			w.Write([]byte(event.UID()))
 			return
 		}
