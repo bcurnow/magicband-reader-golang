@@ -40,6 +40,7 @@ func (c *controller) Load(soundFile string) (beep.Streamer, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
 	wavStreamer, format, err := wav.Decode(f)
 	if err != nil {
@@ -83,7 +84,7 @@ func (c *controller) Load(soundFile string) (beep.Streamer, error) {
 func (c *controller) Play(streamer beep.Streamer) {
 	done := make(chan bool)
 	speaker.Play(beep.Seq(streamer, beep.Callback(func() {
-		done <- true
+		close(done)
 	})))
 	<-done
 }
