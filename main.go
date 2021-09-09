@@ -42,13 +42,33 @@ func main() {
 		router.Close()
 		reader.Close()
 		context.Close()
-		shutdown <- true
+		close(shutdown)
 	}()
 
 	//Blink the LED strip to indicate that the software is started and we're reading
 	//the UID
 	context.LEDController.Blink(led.WHITE, blinkBrightness, blinkIterations, blinkDelay)
 	log.Info("Waiting for MagicBand...")
+
+	// There's an issue with the library we're using that I didn't see in the Python version
+	// As long as you hold the band over the reader, it just keeps reporting the UID over and over
+	// To fix this, we're going to throw away any uid reads which are the same as the last UID and
+	// happened within 10 seconds
+	var lastUid string
+	stopUidCleanup := make(chan bool)
+	uidCleanup := time.NewTicker(10 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-stopUidCleanup:
+				return
+			case <-uidCleanup.C:
+				// Time to clean out the UID
+				lastUid = ""
+			}
+		}
+	}()
+
 	for !router.Closed() {
 		// Set a really long wait time
 		uid, err := reader.UID(24 * time.Hour)
@@ -61,10 +81,17 @@ func main() {
 		}
 
 		// uid will be "" if the reader was shutdown due to an OS signal
-		if uid != "" {
+		// we only want to route the uid once so only route if it's a different uid
+		if uid != "" && uid != lastUid {
 			router.Route(event.NewEvent(uid, event.UNKNOWN))
+			lastUid = uid
 		}
 	}
+
+	// Stop the UID cleaner
+	log.Trace("Stopping the UID cleaner")
+	uidCleanup.Stop()
+	close(stopUidCleanup)
 
 	log.Debug("Waiting for shutdown")
 	<-shutdown
