@@ -17,6 +17,3 @@ bin/
 
 # Sounds is a symlink
 sounds
-
-# I don't think go.sum should be checked in
-go.sum
