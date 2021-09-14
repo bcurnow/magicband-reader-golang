@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -70,8 +71,7 @@ func (r *router) Closed() bool {
 func (r *router) init() error {
 	r.server = r.createServer()
 	r.webChannel = make(chan event.Event)
-	// Use a single buffer to ensure that the first queue request makes it through
-	r.webRequestChannel = make(chan bool, 1)
+	r.webRequestChannel = make(chan bool)
 	return nil
 }
 
@@ -118,33 +118,48 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 		timeout = time.Duration(parsedInt) * time.Second
 	}
 
+	start := time.Now()
+	if err:= sendWebRequest(r, timeout); err != nil {
+		w.WriteHeader(http.StatusRequestTimeout)
+		w.Write([]byte(TimeoutError{}.Error()))
+		log.Debug("handleWebRequest: Request timed out sending on channel")
+		return
+	}
+	elapsed := time.Since(start)
+	log.Tracef("handleWebRequest: sent web request to channel in %v", elapsed)
+
+	// We shouldn't wait the full timeout again, subtrack the time it took to send the web request
+	// from the overall timeout
+	timeout = time.Duration(timeout.Nanoseconds() - elapsed.Nanoseconds())
+
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
 	log.Debugf("handleWebRequest: Waiting for event with timeout: %v", timeout)
 	for {
 		select {
-		case r.webRequestChannel <- true:
-			// If there is no event being read, then the call above, outside a select,
-			// would be blocking which means the timeout logic won't work, adding it
-			// here means that we will eventually either send the request or timeout
-			log.Trace("handleWebRequest: Sent message on webRequestChannel")
 		case <-timer.C:
 			w.WriteHeader(http.StatusRequestTimeout)
 			w.Write([]byte(TimeoutError{}.Error()))
-			// Make sure to remove the request since no response can ever go back
-			select {
-			case <- r.webRequestChannel:
-				log.Trace("handleWebRequest: Cleared webRequestChannel")
-			default:
-				log.Trace("handleWebRequest: Nothing to clear from webRequestChannel")
-			}
 			log.Debug("handleWebRequest: Request timed out")
 			return
 		case event := <-r.webChannel:
 			log.Debugf("handleWebRequest: Returned '%v'", event.UID())
 			w.Write([]byte(event.UID()))
 			return
+		}
+	}
+}
+
+func sendWebRequest(r *router, timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case <- timer.C:
+			return errors.New("Timed out sending web request")
+		case r.webRequestChannel <- true:
+			return nil
 		}
 	}
 }
