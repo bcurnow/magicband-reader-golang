@@ -56,15 +56,19 @@ func main() {
 	// happened within 10 seconds
 	var lastUid string
 	stopUidCleanup := make(chan bool)
-	uidCleanup := time.NewTicker(10 * time.Second)
+	uidCleanupInit := 24 * time.Hour
+	uidCleanupPeriod := 10 * time.Second
+	uidCleanup := time.NewTicker(uidCleanupInit)
 	go func() {
 		for {
 			select {
 			case <-stopUidCleanup:
 				return
 			case <-uidCleanup.C:
+				log.Tracef("Clearing '%v' from lastUid", lastUid)
 				// Time to clean out the UID
 				lastUid = ""
+				uidCleanup.Reset(uidCleanupInit)
 			}
 		}
 	}()
@@ -85,6 +89,7 @@ func main() {
 		if uid != "" && uid != lastUid {
 			router.Route(event.NewEvent(uid, event.UNKNOWN))
 			lastUid = uid
+			uidCleanup.Reset(uidCleanupPeriod)
 		}
 	}
 
