@@ -119,7 +119,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	}
 
 	start := time.Now()
-	if err:= sendWebRequest(r, timeout); err != nil {
+	if err := sendWebRequest(r, timeout); err != nil {
 		w.WriteHeader(http.StatusRequestTimeout)
 		w.Write([]byte(TimeoutError{}.Error()))
 		log.Debug("handleWebRequest: Request timed out sending on channel")
@@ -156,7 +156,7 @@ func sendWebRequest(r *router, timeout time.Duration) error {
 	defer timer.Stop()
 	for {
 		select {
-		case <- timer.C:
+		case <-timer.C:
 			return errors.New("Timed out sending web request")
 		case r.webRequestChannel <- true:
 			return nil
