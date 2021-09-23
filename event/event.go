@@ -34,6 +34,10 @@ type event struct {
 	eventType EventType
 }
 
+func NewEvent(uid string, eventType EventType) Event {
+	return &event{uid: uid, eventType: eventType}
+}
+
 func (e *event) UID() string {
 	return e.uid
 }
@@ -48,8 +52,4 @@ func (e *event) SetType(eventType EventType) {
 
 func (e *event) String() string {
 	return fmt.Sprintf("&event.event{uid:\"%v\", eventType:%v}", e.uid, e.eventType.String())
-}
-
-func NewEvent(uid string, eventType EventType) *event {
-	return &event{uid: uid, eventType: eventType}
 }

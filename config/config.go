@@ -25,7 +25,7 @@ var (
 	CaCertFile           string
 	ConfigFile           string
 	InnerRingSize        int
-	ListenAddress				 string
+	ListenAddress        string
 	ListenPort           int
 	OuterRingSize        int
 	Permission           string

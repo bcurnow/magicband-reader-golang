@@ -39,7 +39,7 @@ type controller struct {
 	currentBrightness int
 }
 
-func NewController(brightness int, outerRingSize int, innerRingSize int, stripType int) (*controller, error) {
+func NewController(brightness int, outerRingSize int, innerRingSize int, stripType int) (Controller, error) {
 	log.Trace("Creating new led.Controller")
 	c := controller{
 		Brightness:    brightness,

@@ -25,7 +25,7 @@ type controller struct {
 	Base       float64
 }
 
-func NewController(volume float64, base float64) (*controller, error) {
+func NewController(volume float64, base float64) (Controller, error) {
 	log.Trace("Creating new audio.Controller")
 	c := controller{
 		Volume: volume,

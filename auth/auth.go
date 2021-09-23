@@ -38,7 +38,7 @@ func (t *authorizingTransport) RoundTrip(req *http.Request) (*http.Response, err
 	return t.transport.RoundTrip(req)
 }
 
-func NewController(apiKey string, caCertFile string, apiUrl *url.URL, permission string, validateCertificates bool) (*controller, error) {
+func NewController(apiKey string, caCertFile string, apiUrl *url.URL, permission string, validateCertificates bool) (Controller, error) {
 	log.Trace("Creating new auth.Controller")
 	transport, err := createTransport(caCertFile, validateCertificates, apiKey)
 	if err != nil {
