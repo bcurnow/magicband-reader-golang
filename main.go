@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	_ "github.com/bcurnow/magicband-reader/cache"
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 	"github.com/bcurnow/magicband-reader/led"
