@@ -3,6 +3,7 @@ package handler
 import (
 	log "github.com/sirupsen/logrus"
 
+	"github.com/bcurnow/magicband-reader/config"
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 )
@@ -11,7 +12,7 @@ type Authorize struct{}
 
 func (h *Authorize) Handle(e event.Event) error {
 	log.Tracef("Authenticating '%v'", e.UID())
-	if authorized := context.AuthController.Authorized(e); authorized {
+	if authorized := context.RFIDSecuritySvc.Authorized(e, config.Permission); authorized {
 		e.SetType(event.AUTHORIZED)
 	} else {
 		e.SetType(event.UNAUTHORIZED)
