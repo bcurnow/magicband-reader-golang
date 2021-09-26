@@ -1,27 +1,17 @@
 package context
 
 import (
-	"errors"
-	"fmt"
-	"sort"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/bcurnow/magicband-reader/audio"
-	"github.com/bcurnow/magicband-reader/auth"
 	"github.com/bcurnow/magicband-reader/config"
-	"github.com/bcurnow/magicband-reader/event"
 	"github.com/bcurnow/magicband-reader/led"
+	"github.com/bcurnow/magicband-reader/rfidsecuritysvc"
 )
-
-type Handler interface {
-	Handle(event event.Event) error
-}
 
 var (
 	AudioController audio.Controller
-	AuthController  auth.Controller
-	Handlers        map[int]Handler
+	RFIDSecuritySvc rfidsecuritysvc.Service
 	LEDController   led.Controller
 	State           map[string]interface{}
 )
@@ -33,49 +23,21 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	AudioController = audioController
 
-	authController, err := auth.NewController(config.ApiKey, config.CaCertFile, config.ApiUrl, config.Permission, config.ValidateCertificates)
+	service, err := rfidsecuritysvc.New(config.ApiKey, config.CaCertFile, config.ApiUrl, config.ValidateCertificates)
 	if err != nil {
 		panic(err)
 	}
+	RFIDSecuritySvc = service
 
 	ledController, err := led.NewController(config.Brightness, config.OuterRingSize, config.InnerRingSize, 0)
 	if err != nil {
 		panic(err)
 	}
-
-	AudioController = audioController
-	AuthController = authController
-	Handlers = make(map[int]Handler)
 	LEDController = ledController
+
 	State = make(map[string]interface{})
-}
-
-func RegisterHandler(priority int, handler Handler) error {
-	existingHandler, exists := Handlers[priority]
-
-	if exists {
-		return errors.New(fmt.Sprintf("Handler '%T' already registered with priority %v", existingHandler, priority))
-	}
-	Handlers[priority] = handler
-	log.Debugf("Handler '%T' registered with priority %v", handler, priority)
-	return nil
-}
-
-func SortedHandlers() []Handler {
-	keys := make([]int, 0, len(Handlers))
-
-	for key := range Handlers {
-		keys = append(keys, key)
-	}
-
-	sort.Ints(keys)
-
-	sorted := make([]Handler, 0, len(Handlers))
-	for _, key := range keys {
-		sorted = append(sorted, Handlers[key])
-	}
-	return sorted
 }
 
 func Close() error {
