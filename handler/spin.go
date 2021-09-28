@@ -3,7 +3,6 @@ package handler
 import (
 	log "github.com/sirupsen/logrus"
 
-	"github.com/bcurnow/magicband-reader/config"
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 	"github.com/bcurnow/magicband-reader/led"
@@ -17,7 +16,7 @@ func (h *Spin) Handle(e event.Event) error {
 	context.State["stopSpinning"] = stop
 
 	runAsync("spinning", func() {
-		context.LEDController.Spin(led.WHITE, config.Brightness, reverseSpin, colorChaseWidth, stop)
+		context.LEDController.Spin(led.WHITE, context.LEDController.Brightness(), reverseSpin, colorChaseWidth, stop)
 	})
 
 	return nil
