@@ -8,7 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	_ "github.com/bcurnow/magicband-reader/cache"
+	"github.com/bcurnow/magicband-reader/config"
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 	"github.com/bcurnow/magicband-reader/led"
@@ -21,7 +21,7 @@ const (
 )
 
 func main() {
-	router, err := NewRouter()
+	router, err := NewRouter(config.ListenAddress, config.ListenPort)
 	if err != nil {
 		panic(err)
 	}
@@ -45,6 +45,10 @@ func main() {
 		context.Close()
 		close(shutdown)
 	}()
+
+	if err := context.AudioCache.Sync(); err != nil {
+		panic(err)
+	}
 
 	//Blink the LED strip to indicate that the software is started and we're reading
 	//the UID
