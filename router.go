@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/bcurnow/magicband-reader/config"
 	readerctx "github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 	_ "github.com/bcurnow/magicband-reader/handler"
@@ -28,10 +27,12 @@ type router struct {
 	webChannel        chan event.Event
 	webRequestChannel chan bool
 	closed            bool
+	listenAddress     string
+	listenPort        int
 }
 
-func NewRouter() (*router, error) {
-	router := router{}
+func NewRouter(listenAddress string, listenPort int) (*router, error) {
+	router := router{listenAddress: listenAddress, listenPort: listenPort}
 	router.init()
 	return &router, nil
 }
@@ -84,7 +85,7 @@ func (r *router) createServer() *http.Server {
 			handleWebRequest(r, w, req)
 		})
 
-	address := fmt.Sprintf("%v:%v", config.ListenAddress, config.ListenPort)
+	address := fmt.Sprintf("%v:%v", r.listenAddress, r.listenPort)
 	server := http.Server{
 		Addr:    address,
 		Handler: muxer,
