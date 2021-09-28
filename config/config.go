@@ -5,11 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"net/url"
 	"os"
-	"path"
-	"strconv"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -18,22 +14,21 @@ import (
 )
 
 var (
-	ApiKey               string
-	ApiUrl               *url.URL
-	AuthorizedSound      string
-	Brightness           int
-	CaCertFile           string
-	ConfigFile           string
-	InnerRingSize        int
-	ListenAddress        string
-	ListenPort           int
-	OuterRingSize        int
-	Permission           string
-	ReadSound            string
-	SoundDir             string
-	UnauthorizedSound    string
-	ValidateCertificates bool
-	VolumeLevel          float64
+	ApiKey            string
+	ApiSSLVerify      string
+	ApiUrl            string
+	AuthorizedSound   string
+	Brightness        int
+	ConfigFile        string
+	InnerRingSize     int
+	ListenAddress     string
+	ListenPort        int
+	OuterRingSize     int
+	Permission        string
+	ReadSound         string
+	SoundDir          string
+	UnauthorizedSound string
+	VolumeLevel       float64
 )
 
 func init() {
@@ -67,24 +62,11 @@ func init() {
 		panic(err)
 	}
 
-	validateCertificates, err := isBool(*apiSSLVerify)
-	if err != nil {
-		// This is not a boolean, must be a file
-		if err := validateFileExists(*apiSSLVerify, "api-ssl-verify"); err != nil {
-			panic(err)
-		}
-	}
-
-	url, err := url.Parse(ensureEndsWith(*apiUrl, "/"))
-	if err != nil {
-		panic(err)
-	}
-
 	ApiKey = *apiKey
-	ApiUrl = url
+	ApiSSLVerify = *apiSSLVerify
+	ApiUrl = *apiUrl
 	AuthorizedSound = *authorizedSound
 	Brightness = *brightness
-	CaCertFile = *apiSSLVerify
 	ConfigFile = *configFile
 	InnerRingSize = *innerRingSize
 	ListenAddress = *listenAddress
@@ -95,9 +77,8 @@ func init() {
 	SoundDir = *soundDir
 	UnauthorizedSound = *unauthorizedSound
 	VolumeLevel = *volumeLevel
-	ValidateCertificates = validateCertificates
 
-	level, err := validate(*logLevel)
+	level, err := validateLogLevel(*logLevel, "log-level")
 	if err != nil {
 		panic(err)
 	}
@@ -108,7 +89,7 @@ func init() {
 
 func logConfig(configFile string, level log.Level, logReportCaller bool) {
 	log.Debug("api-key: <redacted>")
-	log.Debugf("api-ssl-verify: %v", CaCertFile)
+	log.Debugf("api-ssl-verify: %v", ApiSSLVerify)
 	log.Debugf("api-url: %v", ApiUrl)
 	log.Debugf("authorized-sound: %v", AuthorizedSound)
 	log.Debugf("brightness: %v", Brightness)
@@ -126,45 +107,9 @@ func logConfig(configFile string, level log.Level, logReportCaller bool) {
 	log.Debugf("volume-level: %v", VolumeLevel)
 }
 
-func validate(logLevel string) (log.Level, error) {
-	if err := validateFileExists(path.Join(SoundDir, AuthorizedSound), "authorized-sound"); err != nil {
-		return log.WarnLevel, err
-	}
-
-	if err := validateIntRange(Brightness, 0, 255, "brightness"); err != nil {
-		return log.WarnLevel, err
-	}
-
-	if err := validateFileExists(path.Join(SoundDir, ReadSound), "read-sound"); err != nil {
-		return log.WarnLevel, err
-	}
-
-	if err := validateFileExists(SoundDir, "sound-dir"); err != nil {
-		return log.WarnLevel, err
-	}
-
-	if err := validateFileExists(path.Join(SoundDir, UnauthorizedSound), "unauthorized-sound"); err != nil {
-		return log.WarnLevel, err
-	}
-
-	level, err := validateLogLevel(logLevel, "log-level")
-	if err != nil {
-		return log.WarnLevel, err
-	}
-
-	return level, nil
-}
-
-func validateIntRange(value int, low int, high int, name string) error {
-	if value < low || value > high {
-		return errors.New(fmt.Sprintf("Invalid value for %v: '%v'. Must be between %v and %v inclusive.", name, value, low, high))
-	}
-	return nil
-}
-
 func validateFileExists(file string, name string) error {
 	if _, err := os.Stat(file); errors.Is(err, fs.ErrNotExist) {
-		return errors.New(fmt.Sprintf("Invalid value for %v: '%v'. %v", name, file, err))
+		return fmt.Errorf("Invalid value for %v: '%v'. %v", name, file, err)
 	}
 	return nil
 }
@@ -172,7 +117,7 @@ func validateFileExists(file string, name string) error {
 func validateLogLevel(level string, name string) (log.Level, error) {
 	logLevel, err := log.ParseLevel(level)
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("Invalid value for %v: '%v'. %v", name, level, err))
+		return 0, fmt.Errorf("Invalid value for %v: '%v'. %v", name, level, err)
 	}
 	return logLevel, err
 }
@@ -188,19 +133,4 @@ func configureLog(level log.Level, reportCaller bool) {
 	if level == log.TraceLevel {
 		log.SetReportCaller(reportCaller)
 	}
-}
-
-func ensureEndsWith(str string, suffix string) string {
-	if strings.HasSuffix(str, suffix) {
-		return str
-	}
-	return str + suffix
-}
-
-func isBool(str string) (bool, error) {
-	result, err := strconv.ParseBool(str)
-	if err != nil {
-		return false, errors.New(fmt.Sprintf("String '%v' is not a boolean value", str))
-	}
-	return result, nil
 }
