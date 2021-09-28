@@ -17,7 +17,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -27,13 +26,12 @@ import (
 const (
 	colorChaseWidth = 8
 	reverseSpin     = true
-	ledBrightness   = 150
 	fadeEffectDelay = 5 * time.Millisecond
 )
 
 func runAsync(channelName string, f func()) error {
 	if _, exists := context.State[channelName]; exists {
-		return errors.New(fmt.Sprintf("Unable to runAsync, channel with name '%v' already exists in State: %v", channelName, context.State))
+		return fmt.Errorf("Unable to runAsync, channel with name '%v' already exists in State: %v", channelName, context.State)
 	}
 
 	ch := make(chan bool)
