@@ -1,19 +1,16 @@
 package handler
 
 import (
-	"path/filepath"
-
 	"github.com/faiface/beep"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/bcurnow/magicband-reader/config"
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
 )
 
 type AuthSound struct {
-	authSound   beep.Streamer
-	unauthSound beep.Streamer
+	authSound   *beep.Buffer
+	unauthSound *beep.Buffer
 }
 
 func (h *AuthSound) Handle(e event.Event) error {
@@ -32,20 +29,22 @@ func (h *AuthSound) Handle(e event.Event) error {
 }
 
 func init() {
-	authSound, err := context.AudioController.Load(filepath.Join(config.SoundDir, config.AuthorizedSound))
+	authSound, err := context.AudioController.Load(context.AudioController.AuthorizedSound())
 	if err != nil {
 		panic(err)
 	}
 
-	unauthSound, err := context.AudioController.Load(filepath.Join(config.SoundDir, config.UnauthorizedSound))
+	unauthSound, err := context.AudioController.Load(context.AudioController.UnauthorizedSound())
 	if err != nil {
 		panic(err)
 	}
 
-	if err := context.RegisterHandler(21, &AuthSound{
+	handler := &AuthSound{
 		authSound:   authSound,
 		unauthSound: unauthSound,
-	}); err != nil {
+	}
+
+	if err := context.RegisterHandler(21, handler); err != nil {
 		panic(err)
 	}
 }
