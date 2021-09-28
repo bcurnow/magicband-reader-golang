@@ -11,33 +11,43 @@ import (
 
 var (
 	AudioController audio.Controller
+	AudioCache      audio.Cache
 	RFIDSecuritySvc rfidsecuritysvc.Service
 	LEDController   led.Controller
 	State           map[string]interface{}
+	Permission      string
 )
 
 func init() {
 	log.Debug("Initializing Context")
 
-	audioController, err := audio.NewController(config.VolumeLevel, 0)
-	if err != nil {
-		panic(err)
-	}
-	AudioController = audioController
-
-	service, err := rfidsecuritysvc.New(config.ApiKey, config.CaCertFile, config.ApiUrl, config.ValidateCertificates)
+	service, err := rfidsecuritysvc.New(config.ApiKey, config.ApiSSLVerify, config.ApiUrl)
 	if err != nil {
 		panic(err)
 	}
 	RFIDSecuritySvc = service
 
+	audioCache, err := audio.NewCache(RFIDSecuritySvc, config.SoundDir)
+	if err != nil {
+		panic(err)
+	}
+	AudioCache = audioCache
+
+	audioController, err := audio.NewController(config.VolumeLevel, 0, audioCache, config.AuthorizedSound, config.ReadSound, config.UnauthorizedSound)
+	if err != nil {
+		panic(err)
+	}
+	AudioController = audioController
+
 	ledController, err := led.NewController(config.Brightness, config.OuterRingSize, config.InnerRingSize, 0)
 	if err != nil {
 		panic(err)
 	}
+
 	LEDController = ledController
 
 	State = make(map[string]interface{})
+	Permission = config.Permission
 }
 
 func Close() error {
