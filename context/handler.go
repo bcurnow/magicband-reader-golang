@@ -1,7 +1,6 @@
 package context
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
@@ -27,7 +26,7 @@ func RegisterHandler(priority int, handler Handler) error {
 	existingHandler, exists := Handlers[priority]
 
 	if exists {
-		return errors.New(fmt.Sprintf("Handler '%T' already registered with priority %v", existingHandler, priority))
+		return fmt.Errorf("Handler '%T' already registered with priority %v", existingHandler, priority)
 	}
 	Handlers[priority] = handler
 	log.Debugf("Handler '%T' registered with priority %v", handler, priority)
