@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/effects"
@@ -21,9 +20,9 @@ const (
 type Controller interface {
 	Load(soundFile string) (*beep.Buffer, error)
 	Play(buffer *beep.Buffer)
-	AuthorizedSound() string
-	ReadSound() string
-	UnauthorizedSound() string
+	AuthorizedSound() *beep.Buffer
+	ReadSound() *beep.Buffer
+	UnauthorizedSound() *beep.Buffer
 }
 
 type controller struct {
@@ -31,21 +30,18 @@ type controller struct {
 	sampleRate        beep.SampleRate
 	volume            float64
 	base              float64
-	authorizedSound   string
-	readSound         string
-	unauthorizedSound string
+	authorizedSound   *beep.Buffer
+	readSound         *beep.Buffer
+	unauthorizedSound *beep.Buffer
 }
 
 func NewController(volume float64, base float64, cache Cache, authorizedSound string, readSound string, unauthorizedSound string) (Controller, error) {
 	log.Trace("Creating new audio.Controller")
 
 	c := controller{
-		cache:             cache,
-		volume:            volume,
-		base:              base,
-		authorizedSound:   authorizedSound,
-		readSound:         readSound,
-		unauthorizedSound: unauthorizedSound,
+		cache:  cache,
+		volume: volume,
+		base:   base,
 	}
 
 	if err := c.validateSoundConfig(cache.CacheDir()); err != nil {
@@ -53,6 +49,26 @@ func NewController(volume float64, base float64, cache Cache, authorizedSound st
 	}
 
 	c.handleDefaults()
+
+	// Pre-load the default sounds
+	sound, err := c.Load(authorizedSound)
+	if err != nil {
+		return nil, err
+	}
+	c.authorizedSound = sound
+
+	sound, err = c.Load(readSound)
+	if err != nil {
+		return nil, err
+	}
+	c.readSound = sound
+
+	sound, err = c.Load(unauthorizedSound)
+	if err != nil {
+		return nil, err
+	}
+	c.unauthorizedSound = sound
+
 	return &c, nil
 }
 
@@ -110,15 +126,15 @@ func (c *controller) Play(buffer *beep.Buffer) {
 	<-done
 }
 
-func (c *controller) AuthorizedSound() string {
+func (c *controller) AuthorizedSound() *beep.Buffer {
 	return c.authorizedSound
 }
 
-func (c *controller) ReadSound() string {
+func (c *controller) ReadSound() *beep.Buffer {
 	return c.readSound
 }
 
-func (c *controller) UnauthorizedSound() string {
+func (c *controller) UnauthorizedSound() *beep.Buffer {
 	return c.unauthorizedSound
 }
 
@@ -129,27 +145,9 @@ func (c *controller) handleDefaults() {
 }
 
 func (c *controller) validateSoundConfig(soundDir string) error {
-	if err := validateFileExists(soundDir, "sound-dir"); err != nil {
-		return err
+	if _, err := os.Stat(soundDir); errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("Invalid value sound-dir: '%v'. %v", soundDir, err)
 	}
 
-	if err := validateFileExists(path.Join(soundDir, c.authorizedSound), "authorized-sound"); err != nil {
-		return err
-	}
-
-	if err := validateFileExists(path.Join(soundDir, c.readSound), "read-sound"); err != nil {
-		return err
-	}
-
-	if err := validateFileExists(path.Join(soundDir, c.unauthorizedSound), "unauthorized-sound"); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateFileExists(file string, name string) error {
-	if _, err := os.Stat(file); errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("Invalid value for %v: '%v'. %v", name, file, err)
-	}
 	return nil
 }
