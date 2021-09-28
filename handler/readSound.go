@@ -20,13 +20,8 @@ func (h *ReadSound) Handle(e event.Event) error {
 }
 
 func init() {
-	sound, err := context.AudioController.Load(context.AudioController.ReadSound())
-	if err != nil {
-		panic(err)
-	}
-
 	handler := &ReadSound{
-		sound: sound,
+		sound: context.AudioController.ReadSound(),
 	}
 
 	if err := context.RegisterHandler(10, handler); err != nil {

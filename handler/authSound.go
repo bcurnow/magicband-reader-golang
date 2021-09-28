@@ -29,19 +29,9 @@ func (h *AuthSound) Handle(e event.Event) error {
 }
 
 func init() {
-	authSound, err := context.AudioController.Load(context.AudioController.AuthorizedSound())
-	if err != nil {
-		panic(err)
-	}
-
-	unauthSound, err := context.AudioController.Load(context.AudioController.UnauthorizedSound())
-	if err != nil {
-		panic(err)
-	}
-
 	handler := &AuthSound{
-		authSound:   authSound,
-		unauthSound: unauthSound,
+		authSound:   context.AudioController.AuthorizedSound(),
+		unauthSound: context.AudioController.UnauthorizedSound(),
 	}
 
 	if err := context.RegisterHandler(21, handler); err != nil {
