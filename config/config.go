@@ -1,10 +1,8 @@
 package config
 
 import (
-	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -105,13 +103,6 @@ func logConfig(configFile string, level log.Level, logReportCaller bool) {
 	log.Debugf("sound-dir: %v", SoundDir)
 	log.Debugf("unauthorized-sound: %v", UnauthorizedSound)
 	log.Debugf("volume-level: %v", VolumeLevel)
-}
-
-func validateFileExists(file string, name string) error {
-	if _, err := os.Stat(file); errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("Invalid value for %v: '%v'. %v", name, file, err)
-	}
-	return nil
 }
 
 func validateLogLevel(level string, name string) (log.Level, error) {
