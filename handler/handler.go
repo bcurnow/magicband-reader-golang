@@ -24,9 +24,7 @@ import (
 )
 
 const (
-	colorChaseWidth = 8
-	reverseSpin     = true
-	fadeEffectDelay = 5 * time.Millisecond
+	fadeEffectDelay = 10 * time.Millisecond
 )
 
 func runAsync(channelName string, f func()) error {
