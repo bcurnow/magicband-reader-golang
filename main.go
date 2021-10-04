@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	blinkBrightness = 64
 	blinkIterations = 2
 	blinkDelay      = 500 * time.Millisecond
 )
@@ -52,7 +51,7 @@ func main() {
 
 	//Blink the LED strip to indicate that the software is started and we're reading
 	//the UID
-	context.LEDController.Blink(led.WHITE, blinkBrightness, blinkIterations, blinkDelay)
+	context.LEDController.Blink(led.WHITE, blinkIterations, blinkDelay)
 	log.Info("Waiting for MagicBand...")
 
 	// There's an issue with the library we're using that I didn't see in the Python version
