@@ -15,15 +15,14 @@ const (
 )
 
 type Controller interface {
-	Blink(color Color, brightness int, iterations int, delay time.Duration) error
-	LightsOn(color Color, brightness int) error
-	FadeOn(color Color, brightness int, delay time.Duration) error
+	Blink(color Color, iterations int, delay time.Duration) error
+	LightsOn(color Color) error
+	FadeOn(color Color, delay time.Duration) error
 	LightsOff() error
 	FadeOff(delay time.Duration) error
-	ColorChase(color Color, brightness int, delay time.Duration, reverse bool, effectLength int) error
-	Spin(color Color, brightness int, reverse bool, effectLength int, stop <-chan bool) error
+	ColorChase(color Color, delay time.Duration, reverse bool, effectLength int) error
+	Spin(color Color, reverse bool, effectLength int, stop <-chan bool) error
 	Close()
-	Brightness() int
 }
 
 type controller struct {
@@ -44,8 +43,8 @@ type controller struct {
 func NewController(brightness int, outerRingSize int, innerRingSize int, stripType int) (Controller, error) {
 	log.Trace("Creating new led.Controller")
 
-	if err := validateIntRange(brightness, 0, 255, "brightness"); err != nil {
-		return nil, err
+	if brightness < 0 || brightness > 255 {
+		return nil, fmt.Errorf("Invalid value for brightness: '%v'. Must be between 0 and 255 inclusive.", brightness)
 	}
 
 	c := controller{
@@ -87,9 +86,9 @@ func (c *controller) Close() {
 /**
  *  Blink implements a blink effect by on and of the lights
  */
-func (c *controller) Blink(color Color, brightness int, iterations int, delay time.Duration) error {
+func (c *controller) Blink(color Color, iterations int, delay time.Duration) error {
 	for i := 0; i < iterations; i++ {
-		if err := c.LightsOn(color, brightness); err != nil {
+		if err := c.LightsOn(color); err != nil {
 			return err
 		}
 		time.Sleep(delay)
@@ -103,8 +102,8 @@ func (c *controller) Blink(color Color, brightness int, iterations int, delay ti
 	return nil
 }
 
-func (c *controller) LightsOn(color Color, brightness int) error {
-	c.setBrightness(brightness)
+func (c *controller) LightsOn(color Color) error {
+	c.setBrightness(c.brightness)
 	c.fill(color)
 	if err := c.strip.Render(); err != nil {
 		return err
@@ -112,10 +111,11 @@ func (c *controller) LightsOn(color Color, brightness int) error {
 	return nil
 }
 
-func (c *controller) FadeOn(color Color, brightness int, delay time.Duration) error {
+func (c *controller) FadeOn(color Color, delay time.Duration) error {
 	c.fill(color)
 
-	for currentBrightness := 1; currentBrightness <= brightness; currentBrightness++ {
+	for currentBrightness := 1; currentBrightness <= c.brightness; currentBrightness++ {
+		log.Debug(currentBrightness)
 		c.setBrightness(currentBrightness)
 		if err := c.strip.Render(); err != nil {
 			return err
@@ -147,8 +147,8 @@ func (c *controller) FadeOff(delay time.Duration) error {
 	return nil
 }
 
-func (c *controller) ColorChase(color Color, brightness int, delay time.Duration, reverse bool, effectLength int) error {
-	c.setBrightness(brightness)
+func (c *controller) ColorChase(color Color, delay time.Duration, reverse bool, effectLength int) error {
+	c.setBrightness(c.brightness)
 	var on int = 0
 	var off int = 0
 	for i := 0; i < c.outerRingSize+effectLength+1; i++ {
@@ -182,23 +182,19 @@ func (c *controller) ColorChase(color Color, brightness int, delay time.Duration
  * Spin will spin (ColorChase) 3 times at increasingly faster intervals and then continue to spin at the fastest
  * interval until it receives on the stop channel.
  */
-func (c *controller) Spin(color Color, brightness int, reverse bool, effectLength int, stop <-chan bool) error {
-	c.ColorChase(color, brightness, 10*time.Millisecond, reverse, effectLength)
-	c.ColorChase(color, brightness, 5*time.Millisecond, reverse, effectLength)
-	c.ColorChase(color, brightness, 2500*time.Microsecond, reverse, effectLength)
+func (c *controller) Spin(color Color, reverse bool, effectLength int, stop <-chan bool) error {
+	c.ColorChase(color, 10*time.Millisecond, reverse, effectLength)
+	c.ColorChase(color, 5*time.Millisecond, reverse, effectLength)
+	c.ColorChase(color, 2500*time.Microsecond, reverse, effectLength)
 	for {
 		select {
 		case <-stop:
 			return nil
 		default:
-			c.ColorChase(color, brightness, 1250*time.Microsecond, reverse, effectLength)
+			c.ColorChase(color, 1250*time.Microsecond, reverse, effectLength)
 		}
 	}
 	return nil
-}
-
-func (c *controller) Brightness() int {
-	return c.brightness
 }
 
 func (c *controller) handleDefaults() {
@@ -232,11 +228,4 @@ func (c *controller) fill(color Color) {
 func (c *controller) setBrightness(brightness int) {
 	c.strip.SetBrightness(0, brightness)
 	c.currentBrightness = brightness
-}
-
-func validateIntRange(value int, low int, high int, name string) error {
-	if value < low || value > high {
-		return fmt.Errorf("Invalid value for %v: '%v'. Must be between %v and %v inclusive.", name, value, low, high)
-	}
-	return nil
 }
