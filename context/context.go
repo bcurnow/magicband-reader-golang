@@ -14,8 +14,8 @@ var (
 	AudioCache      audio.Cache
 	RFIDSecuritySvc rfidsecuritysvc.Service
 	LEDController   led.Controller
-	State           map[string]interface{}
 	Permission      string
+	State           map[string]interface{}
 )
 
 func init() {
@@ -43,10 +43,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
 	LEDController = ledController
 
 	State = make(map[string]interface{})
+	// The permission is really part of the context for the application, this also
+	// reduces the direct dependencies on config
 	Permission = config.Permission
 }
 
