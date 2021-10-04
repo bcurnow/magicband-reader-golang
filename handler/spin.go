@@ -8,6 +8,11 @@ import (
 	"github.com/bcurnow/magicband-reader/led"
 )
 
+const (
+	colorChaseWidth = 8
+	reverseSpin     = true
+)
+
 type Spin struct{}
 
 func (h *Spin) Handle(e event.Event) error {
@@ -16,7 +21,7 @@ func (h *Spin) Handle(e event.Event) error {
 	context.State["stopSpinning"] = stop
 
 	runAsync("spinning", func() {
-		context.LEDController.Spin(led.WHITE, context.LEDController.Brightness(), reverseSpin, colorChaseWidth, stop)
+		context.LEDController.Spin(led.WHITE, reverseSpin, colorChaseWidth, stop)
 	})
 
 	return nil
