@@ -13,10 +13,12 @@ type Authorize struct {
 
 func (h *Authorize) Handle(e event.Event) error {
 	log.Tracef("Authenticating '%v'", e.UID())
-	if authorized := context.RFIDSecuritySvc.Authorized(e, h.permission); authorized {
-		e.SetType(event.AUTHORIZED)
-	} else {
+	if mediaConfig, err := context.RFIDSecuritySvc.Authorized(e, h.permission); err != nil {
 		e.SetType(event.UNAUTHORIZED)
+	} else {
+		e.SetType(event.AUTHORIZED)
+		context.State["mediaConfig"] = mediaConfig
+		log.Errorf("%+v", mediaConfig)
 	}
 	return nil
 }
