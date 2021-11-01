@@ -6,6 +6,7 @@ import (
 
 	"github.com/bcurnow/magicband-reader/context"
 	"github.com/bcurnow/magicband-reader/event"
+	"github.com/bcurnow/magicband-reader/rfidsecuritysvc"
 )
 
 type AuthSound struct {
@@ -18,7 +19,7 @@ func (h *AuthSound) Handle(e event.Event) error {
 	switch e.Type() {
 	case event.AUTHORIZED:
 		runAsync("authSoundPlaying", func() {
-			context.AudioController.Play(h.authSound)
+			context.AudioController.Play(h.resolveSound())
 		})
 	case event.UNAUTHORIZED:
 		runAsync("authSoundPlaying", func() {
@@ -26,6 +27,28 @@ func (h *AuthSound) Handle(e event.Event) error {
 		})
 	}
 	return nil
+}
+
+func (h *AuthSound) resolveSound() *beep.Buffer {
+	// Not sure how this would happen but we don't have a MediaConfig object in state
+	if context.State["mediaConfig"] == nil {
+		log.Errorf("Unable to find mediaConfig in State, using default authorized sound")
+		return h.authSound
+	}
+
+	mediaConfig := context.State["mediaConfig"].(*rfidsecuritysvc.MediaConfig)
+	if mediaConfig.Sound == nil {
+		log.Infof("No sound configured in mediaConfig, using default authorized sound")
+		return h.authSound
+	}
+
+	soundBuffer, err := context.AudioController.Load(mediaConfig.Sound)
+	if err != nil {
+		log.Errorf("Unable to load %v from mediaConfig, using default authorized sound", mediaConfig.Sound.Name)
+		return h.authSound
+	}
+
+	return soundBuffer
 }
 
 func init() {
