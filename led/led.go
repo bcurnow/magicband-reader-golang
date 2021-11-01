@@ -115,7 +115,6 @@ func (c *controller) FadeOn(color Color, delay time.Duration) error {
 	c.fill(color)
 
 	for currentBrightness := 1; currentBrightness <= c.brightness; currentBrightness++ {
-		log.Debug(currentBrightness)
 		c.setBrightness(currentBrightness)
 		if err := c.strip.Render(); err != nil {
 			return err
