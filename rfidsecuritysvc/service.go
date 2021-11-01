@@ -15,7 +15,7 @@ import (
 )
 
 type Service interface {
-	Authorized(event event.Event, permission string) bool
+	Authorized(event event.Event, permission string) (*MediaConfig, error)
 	Sounds() SoundService
 }
 
