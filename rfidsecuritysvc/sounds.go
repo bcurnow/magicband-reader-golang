@@ -2,7 +2,6 @@ package rfidsecuritysvc
 
 import (
 	"fmt"
-	"time"
 )
 
 const (
@@ -10,16 +9,9 @@ const (
 	getUrlFormat = baseUrl + "/%v"
 )
 
-type Sound struct {
-	ID                  int       `json:"id"`
-	Name                string    `json:"name"`
-	LastUpdateTimestamp time.Time `json:"last_update_timestamp"`
-	Content             string    `json:"content"`
-}
-
 type SoundService interface {
 	List() ([]Sound, error)
-	Get(name string) (*Sound, error)
+	Get(id int) (*Sound, error)
 }
 
 func (s *service) Sounds() SoundService {
@@ -40,9 +32,9 @@ func (s *soundService) List() ([]Sound, error) {
 	return sounds, nil
 }
 
-func (s *soundService) Get(name string) (*Sound, error) {
+func (s *soundService) Get(id int) (*Sound, error) {
 	var sound Sound
-	if err := s.base.Get(fmt.Sprintf(getUrlFormat, name), 200, &sound); err != nil {
+	if err := s.base.Get(fmt.Sprintf(getUrlFormat, id), 200, &sound); err != nil {
 		return nil, err
 	}
 	return &sound, nil
