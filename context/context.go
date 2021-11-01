@@ -31,6 +31,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Before we hand the cache over to any other object, make sure we've synced up
+	if err := audioCache.Sync(); err != nil {
+		panic(err)
+	}
 	AudioCache = audioCache
 
 	audioController, err := audio.NewController(config.VolumeLevel, 0, audioCache, config.AuthorizedSound, config.ReadSound, config.UnauthorizedSound)
