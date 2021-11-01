@@ -45,10 +45,6 @@ func main() {
 		close(shutdown)
 	}()
 
-	if err := context.AudioCache.Sync(); err != nil {
-		panic(err)
-	}
-
 	//Blink the LED strip to indicate that the software is started and we're reading
 	//the UID
 	context.LEDController.Blink(led.WHITE, blinkIterations, blinkDelay)
