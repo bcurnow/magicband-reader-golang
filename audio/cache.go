@@ -12,9 +12,10 @@ import (
 )
 
 type Cache interface {
-	Sync() error
-	Load(name string) (*os.File, error)
 	CacheDir() string
+	Get(soundName string) (*os.File, error)
+	Load(sound *rfidsecuritysvc.Sound) (*os.File, error)
+	Sync() error
 }
 
 type cache struct {
@@ -27,18 +28,48 @@ func NewCache(svc rfidsecuritysvc.Service, soundDir string) (Cache, error) {
 	return &cache{rfidSecuritySvc: svc, soundDir: soundDir}, nil
 }
 
-func (c *cache) Sync() error {
-	sounds, err := c.rfidSecuritySvc.Sounds().List()
-	if err != nil {
-		return err
-	}
-	mappedSounds := mapSounds(sounds)
+func (c *cache) CacheDir() string {
+	return c.soundDir
+}
 
-	files, err := os.ReadDir(c.soundDir)
+func (c *cache) Get(soundName string) (*os.File, error) {
+	filePath := path.Join(c.soundDir, soundName)
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return f, err
+}
+
+func (c *cache) Load(sound *rfidsecuritysvc.Sound) (*os.File, error) {
+	f, err := c.Get(sound.Name)
+	if err == nil {
+		return f, nil
+	}
+
+	// File doesn't currently existing on the file system, download from the service
+	if err := c.writeSound(sound.ID); err != nil {
+		return nil, err
+	}
+
+	f, err = c.Get(sound.Name)
+	if err != nil {
+		// We though we downloaded but something went wrong
+		return nil, fmt.Errorf("%v not found in cache, downloading was successful but still unable to read: %v", sound.Name, err)
+	}
+	return f, nil
+}
+
+func (c *cache) Sync() error {
+	mappedSounds, err := c.mapSounds()
 	if err != nil {
 		return err
 	}
-	mappedFiles := mapFiles(files)
+
+	mappedFiles, err := c.mapFiles()
+	if err != nil {
+		return err
+	}
 
 	for _, sound := range mappedSounds {
 		if dirInfo, exists := mappedFiles[sound.Name]; exists {
@@ -50,13 +81,13 @@ func (c *cache) Sync() error {
 
 			if fsInfo.ModTime().Before(sound.LastUpdateTimestamp) {
 				log.Debugf("%v found but out of date, updating", dirInfo.Name())
-				if err := c.writeSound(sound.Name); err != nil {
+				if err := c.writeSound(sound.ID); err != nil {
 					return err
 				}
 			}
 		} else {
 			log.Debugf("%v not found, downloading to %v", sound.Name, c.soundDir)
-			if err := c.writeSound(sound.Name); err != nil {
+			if err := c.writeSound(sound.ID); err != nil {
 				return err
 			}
 		}
@@ -64,29 +95,8 @@ func (c *cache) Sync() error {
 	return nil
 }
 
-func (c *cache) Load(name string) (*os.File, error) {
-	filePath := path.Join(c.soundDir, name)
-	f, err := os.Open(filePath)
-	if err != nil {
-		// The file does not exist, write it to the directory and re-open
-		if err := c.writeSound(name); err != nil {
-			f, err := os.Open(filePath)
-			if err != nil {
-				// We though we downloaded but something went wrong
-				return nil, fmt.Errorf("%v not found in cache, downloading was successful but still unable to read %v: %v", name, filePath, err)
-			}
-			return f, nil
-		}
-	}
-	return f, nil
-}
-
-func (c *cache) CacheDir() string {
-	return c.soundDir
-}
-
-func (c *cache) writeSound(name string) error {
-	sound, err := c.rfidSecuritySvc.Sounds().Get(name)
+func (c *cache) writeSound(id int) error {
+	sound, err := c.rfidSecuritySvc.Sounds().Get(id)
 	if err != nil {
 		return err
 	}
@@ -102,18 +112,28 @@ func (c *cache) writeSound(name string) error {
 	return nil
 }
 
-func mapSounds(sounds []rfidsecuritysvc.Sound) map[string]rfidsecuritysvc.Sound {
+func (c *cache) mapSounds() (map[string]rfidsecuritysvc.Sound, error) {
+	sounds, err := c.rfidSecuritySvc.Sounds().List()
+	if err != nil {
+		return nil, err
+	}
+
 	results := make(map[string]rfidsecuritysvc.Sound)
 	for _, s := range sounds {
 		results[s.Name] = s
 	}
-	return results
+	return results, nil
 }
 
-func mapFiles(files []os.DirEntry) map[string]os.DirEntry {
+func (c *cache) mapFiles() (map[string]os.DirEntry, error) {
+	files, err := os.ReadDir(c.soundDir)
+	if err != nil {
+		return nil, err
+	}
+
 	results := make(map[string]os.DirEntry)
 	for _, f := range files {
 		results[f.Name()] = f
 	}
-	return results
+	return results, nil
 }

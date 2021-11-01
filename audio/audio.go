@@ -11,6 +11,8 @@ import (
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/beep/wav"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/bcurnow/magicband-reader/rfidsecuritysvc"
 )
 
 const (
@@ -18,7 +20,7 @@ const (
 )
 
 type Controller interface {
-	Load(soundFile string) (*beep.Buffer, error)
+	Load(sound *rfidsecuritysvc.Sound) (*beep.Buffer, error)
 	Play(buffer *beep.Buffer)
 	AuthorizedSound() *beep.Buffer
 	ReadSound() *beep.Buffer
@@ -35,7 +37,7 @@ type controller struct {
 	unauthorizedSound *beep.Buffer
 }
 
-func NewController(volume float64, base float64, cache Cache, authorizedSound string, readSound string, unauthorizedSound string) (Controller, error) {
+func NewController(volume float64, base float64, cache Cache, authorizedSoundName string, readSoundName string, unauthorizedSoundName string) (Controller, error) {
 	log.Trace("Creating new audio.Controller")
 
 	c := controller{
@@ -51,62 +53,47 @@ func NewController(volume float64, base float64, cache Cache, authorizedSound st
 	c.handleDefaults()
 
 	// Pre-load the default sounds
-	sound, err := c.Load(authorizedSound)
+	f, err := cache.Get(authorizedSoundName)
 	if err != nil {
 		return nil, err
 	}
-	c.authorizedSound = sound
+	buffer, err := c.loadFile(f)
+	c.authorizedSound = buffer
 
-	sound, err = c.Load(readSound)
+	f, err = cache.Get(readSoundName)
 	if err != nil {
 		return nil, err
 	}
-	c.readSound = sound
+	buffer, err = c.loadFile(f)
+	if err != nil {
+		return nil, err
+	}
+	c.readSound = buffer
 
-	sound, err = c.Load(unauthorizedSound)
+	f, err = cache.Get(unauthorizedSoundName)
 	if err != nil {
 		return nil, err
 	}
-	c.unauthorizedSound = sound
+	buffer, err = c.loadFile(f)
+	if err != nil {
+		return nil, err
+	}
+	c.unauthorizedSound = buffer
 
 	return &c, nil
 }
 
-func (c *controller) Load(soundFile string) (*beep.Buffer, error) {
-	f, err := c.cache.Load(soundFile)
+func (c *controller) Load(sound *rfidsecuritysvc.Sound) (*beep.Buffer, error) {
+	f, err := c.cache.Load(sound)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-
-	wavStreamer, format, err := wav.Decode(f)
+	soundBuffer, err := c.loadFile(f)
 	if err != nil {
 		return nil, err
 	}
-	defer wavStreamer.Close()
-
-	var streamer beep.Streamer = wavStreamer
-
-	if c.sampleRate != 0 {
-		// We've already played at least one file
-		// This means the speaker has already been initialized
-		if c.sampleRate != format.SampleRate {
-			streamer = beep.Resample(4, format.SampleRate, c.sampleRate, streamer)
-		}
-	} else {
-		c.sampleRate = format.SampleRate
-
-		// The examples show using the sample rate to determine the size of the buffer
-		// Because we need to support multiple, potentially user provided sound files
-		// We're going to choose a default buffer size (5K)  that should be sufficient
-		// to stream any of the files.
-		speaker.Init(format.SampleRate, 5*1024)
-	}
-
-	// Read the file into memory, these are very small files
-	buffer := beep.NewBuffer(format)
-	buffer.Append(streamer)
-	return buffer, nil
+	return soundBuffer, nil
 }
 
 func (c *controller) Play(buffer *beep.Buffer) {
@@ -142,6 +129,37 @@ func (c *controller) handleDefaults() {
 	if c.base == 0 {
 		c.base = defaultBase
 	}
+}
+
+func (c *controller) loadFile(f *os.File) (*beep.Buffer, error) {
+	wavStreamer, format, err := wav.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	defer wavStreamer.Close()
+
+	var streamer beep.Streamer = wavStreamer
+
+	if c.sampleRate != 0 {
+		// We've already played at least one file
+		// This means the speaker has already been initialized
+		if c.sampleRate != format.SampleRate {
+			streamer = beep.Resample(4, format.SampleRate, c.sampleRate, streamer)
+		}
+	} else {
+		c.sampleRate = format.SampleRate
+
+		// The examples show using the sample rate to determine the size of the buffer
+		// Because we need to support multiple, potentially user provided sound files
+		// We're going to choose a default buffer size (5K)  that should be sufficient
+		// to stream any of the files.
+		speaker.Init(format.SampleRate, 5*1024)
+	}
+
+	// Read the file into memory, these are very small files
+	buffer := beep.NewBuffer(format)
+	buffer.Append(streamer)
+	return buffer, nil
 }
 
 func (c *controller) validateSoundConfig(soundDir string) error {
