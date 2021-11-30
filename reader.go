@@ -137,6 +137,11 @@ func (r *reader) UID(timeout time.Duration) (string, error) {
 					return
 				}
 
+				if err.Error() == "mfrc522: wrong number of bits 0" {
+					// This happens when the reader pics up something it thinks is a PIC in the field but it's not, just ignore it
+					return
+				}
+
 				// Not sure what the error is, we should just try to read again
 				log.Warnf("reader.UID: Unexpected error: %v", err)
 				continue
