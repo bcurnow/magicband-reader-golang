@@ -54,7 +54,19 @@ USER root
 
 WORKDIR /build
 
-COPY . /build
+COPY audio ./audio/
+COPY config ./config/
+COPY context ./context/
+COPY event ./event/
+COPY handler ./handler/
+COPY led ./led/
+COPY rfidsecuritysvc ./rfidsecuritysvc/
+COPY ca.pem ./
+COPY go.mod ./
+COPY go.sum ./
+COPY main.go ./
+COPY reader.go ./
+COPY router.go ./
 
 ENV GOARCH=arm
 ENV GOOS=linux
@@ -72,6 +84,12 @@ WORKDIR /magicband-reader
 COPY --from=bin_builder /build/magicband-reader /magicband-reader/
 COPY --from=bin_builder /build/ca.pem /magicband-reader/
 
+# Create the database volume
+RUN mkdir /sounds && chmod 750 /sounds
+VOLUME /sounds
+
 EXPOSE 9000
 
-CMD ["/magicband-reader/magicband-reader", "--listen-address", "0.0.0.0", "--listen-port", "9000"]
+ENTRYPOINT ["/magicband-reader/magicband-reader"]
+
+CMD ["--listen-address", "0.0.0.0", "--listen-port", "9000", "--sound-dir", "/sounds"]
