@@ -37,7 +37,7 @@ func init() {
 		apiUrl            = fs.String("api-url", "https://localhost:5000/api/v1.0", "The rfid-security-svc base URL.")
 		authorizedSound   = fs.String("authorized-sound", "authorized.wav", "The name of the sound file played when a band is authorized (relative to sound-dir).")
 		brightness        = fs.Int("brightness", 100, "The brightness level of the LEDs. Range of 0 to 255 inclusive")
-		configFile        = fs.String("config-file", "/etc/magicband-reader/magicband-reader.yaml", "The YAML configuration file to load.")
+		configFile        = fs.String("config-file", "/etc/magicband-reader/magicband-reader.yml", "The YAML configuration file to load.")
 		innerRingSize     = fs.Int("inner-ring-size", 20, "The number of LEDs that make up the inner ring.")
 		listenAddress     = fs.String("listen-address", "localhost", "The address to listen on, since the listener has no security, it's not recommended to change this value.")
 		listenPort        = fs.Int("listen-port", 8080, "The port number to listen for requests for UID (e.g. from rfid-security-svc)")
