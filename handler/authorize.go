@@ -18,7 +18,7 @@ func (h *Authorize) Handle(e event.Event) error {
 	} else {
 		e.SetType(event.AUTHORIZED)
 		context.State["mediaConfig"] = mediaConfig
-		log.Errorf("%+v", mediaConfig)
+		log.Tracef("%+v", mediaConfig)
 	}
 	return nil
 }
