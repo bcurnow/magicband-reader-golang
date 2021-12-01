@@ -44,7 +44,7 @@ func init() {
 		logLevel          = fs.String("log-level", "info", "One of: debug, info, warning, error fatal.")
 		logReportCaller   = fs.Bool("log-report-caller", false, "Includes the calling function, file, and line number (caller) in log lines. Only works when log-level = trace")
 		outerRingSize     = fs.Int("outer-ring-size", 40, "The number of LEDs that make up the outer ring.")
-		permission        = fs.String("permission", "Open Door", "The name of the permission to validate before authorizing.")
+		permission        = fs.String("permission", "MagicBand Reader", "The name of the permission to validate before authorizing.")
 		readSound         = fs.String("read-sound", "read.wav", "The name of the sound file played when a band is read (relative to sound-dir).")
 		soundDir          = fs.String("sound-dir", "/sounds", "The directory containing the sound files.")
 		unauthorizedSound = fs.String("unauthorized-sound", "unauthorized.wav", "The name of the sound file played when a band is unauthorized (relative to sound-dir).")
