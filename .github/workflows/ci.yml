@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# The led package (and everything that imports it: context, handler, main) wraps the
+# rpi_ws281x C library via cgo and expects it pre-installed at /usr/local/lib|include,
+# same as the Dockerfile's lib_builder stage. Without it, go build/vet/test can't even
+# type-check most of the module.
+env:
+  RPI_WS281X_REF: master
+
+jobs:
+  build-test:
+    name: Build, vet, test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential \
+            cmake \
+            libasound2-dev
+
+      - name: Build and install rpi_ws281x C library
+        run: |
+          git clone --depth 1 --branch "${RPI_WS281X_REF}" https://github.com/jgarff/rpi_ws281x.git /tmp/rpi_ws281x
+          cmake -S /tmp/rpi_ws281x -B /tmp/rpi_ws281x/build -D BUILD_SHARED=OFF -D BUILD_TEST=OFF
+          cmake --build /tmp/rpi_ws281x/build
+          sudo cmake --install /tmp/rpi_ws281x/build
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l -s .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet -tags no_d2xx ./...
+
+      - name: go build
+        run: go build -tags no_d2xx ./...
+
+      - name: go test
+        run: go test -tags no_d2xx ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          args: --build-tags=no_d2xx
+
+  docker-build:
+    name: Docker image (linux/arm/v6)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm/v6
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

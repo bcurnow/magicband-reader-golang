@@ -1,4 +1,7 @@
-FROM debian:buster as lib_builder
+ARG GO_VERSION=1.25
+ARG DEBIAN_VERSION=bookworm
+
+FROM debian:${DEBIAN_VERSION} as lib_builder
 
 WORKDIR /foundry
 
@@ -15,7 +18,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && cmake --build . \
     && make install
 
-FROM golang:1.16-buster as dev_image
+FROM golang:${GO_VERSION}-${DEBIAN_VERSION} as dev_image
 
 COPY --from=lib_builder /usr/local/lib/libws2811.a /usr/local/lib/
 COPY --from=lib_builder /usr/local/include/ws2811 /usr/local/include/ws2811
@@ -74,7 +77,7 @@ ENV GOARM=6
 ENV CGO_ENABLED=1
 RUN go build -tags no_d2xx -o /build/magicband-reader
 
-FROM debian:buster-slim as prod_image
+FROM debian:${DEBIAN_VERSION}-slim as prod_image
 USER root
 
 RUN apt-get update && apt-get -y install --no-install-recommends libasound2

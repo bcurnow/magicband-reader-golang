@@ -43,13 +43,22 @@ build:
 format:
 	gofmt -l -w -s .
 
+vet:
+	go vet -tags no_d2xx ./...
+
+lint:
+	golangci-lint run --build-tags=no_d2xx
+
+test:
+	go test -tags no_d2xx ./...
+
 run:
 	sudo bin/${binaryName} ${READER_ARGS}
 
 tidy:
 	go mod tidy
 
-local: clear tidy format build
+local: clear tidy format vet test build
 
 clear:
 	clear
