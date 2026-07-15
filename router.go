@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -111,7 +112,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
 	vars := req.URL.Query()
-	log.Tracef("handleWebRequest: Received request with parameters: %v", vars)
+	log.Tracef("handleWebRequest: Received request with parameters: %v", sanitizeForLog(vars))
 	if _, exists := vars["timeout"]; exists {
 		parsedInt, err := strconv.ParseInt(vars["timeout"][0], 0, 64)
 		if err != nil {
@@ -153,6 +154,13 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+}
+
+// sanitizeForLog strips CR/LF from untrusted input before it's written to the log, so a
+// crafted query parameter can't forge additional log lines or corrupt log parsing.
+func sanitizeForLog(v interface{}) string {
+	s := fmt.Sprintf("%v", v)
+	return strings.NewReplacer("\n", "", "\r", "").Replace(s)
 }
 
 func writeResponse(w http.ResponseWriter, body []byte) {
