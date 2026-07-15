@@ -164,7 +164,7 @@ func (c *controller) loadFile(f *os.File) (*beep.Buffer, error) {
 
 func (c *controller) validateSoundConfig(soundDir string) error {
 	if _, err := os.Stat(soundDir); errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("Invalid value sound-dir: '%v'. %v", soundDir, err)
+		return fmt.Errorf("invalid value for sound-dir: '%v': %v", soundDir, err)
 	}
 
 	return nil

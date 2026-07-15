@@ -56,7 +56,7 @@ func createTransport(apiSSLVerify string, apiKey string) (*authorizingTransport,
 func isBool(str string) (bool, error) {
 	result, err := strconv.ParseBool(str)
 	if err != nil {
-		return false, fmt.Errorf("String '%v' is not a boolean value", str)
+		return false, fmt.Errorf("string '%v' is not a boolean value", str)
 	}
 	return result, nil
 }

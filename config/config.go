@@ -108,7 +108,7 @@ func logConfig(configFile string, level log.Level, logReportCaller bool) {
 func validateLogLevel(level string, name string) (log.Level, error) {
 	logLevel, err := log.ParseLevel(level)
 	if err != nil {
-		return 0, fmt.Errorf("Invalid value for %v: '%v'. %v", name, level, err)
+		return 0, fmt.Errorf("invalid value for %v: '%v': %v", name, level, err)
 	}
 	return logLevel, err
 }

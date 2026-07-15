@@ -158,7 +158,7 @@ func sendWebRequest(r *router, timeout time.Duration) error {
 	for {
 		select {
 		case <-timer.C:
-			return errors.New("Timed out sending web request")
+			return errors.New("timed out sending web request")
 		case r.webRequestChannel <- true:
 			return nil
 		}

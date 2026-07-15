@@ -29,7 +29,7 @@ const (
 
 func runAsync(channelName string, f func()) error {
 	if _, exists := context.State[channelName]; exists {
-		return fmt.Errorf("Unable to runAsync, channel with name '%v' already exists in State: %v", channelName, context.State)
+		return fmt.Errorf("unable to runAsync, channel with name '%v' already exists in state: %v", channelName, context.State)
 	}
 
 	ch := make(chan bool)

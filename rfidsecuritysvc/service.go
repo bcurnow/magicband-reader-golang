@@ -3,7 +3,7 @@ package rfidsecuritysvc
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -62,11 +62,11 @@ func (s *service) Get(urlString string, requiredStatusCode int, jsonStruct inter
 	defer response.Body.Close()
 
 	if response.StatusCode != requiredStatusCode {
-		return fmt.Errorf("Bad response from '%v', expected %v but received %v", url, requiredStatusCode, response.StatusCode)
+		return fmt.Errorf("bad response from '%v', expected %v but received %v", url, requiredStatusCode, response.StatusCode)
 	}
 
 	if jsonStruct != nil {
-		body, err := ioutil.ReadAll(response.Body)
+		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
 		}

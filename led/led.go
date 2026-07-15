@@ -44,7 +44,7 @@ func NewController(brightness int, outerRingSize int, innerRingSize int, stripTy
 	log.Trace("Creating new led.Controller")
 
 	if brightness < 0 || brightness > 255 {
-		return nil, fmt.Errorf("Invalid value for brightness: '%v'. Must be between 0 and 255 inclusive.", brightness)
+		return nil, fmt.Errorf("invalid value for brightness: '%v', must be between 0 and 255 inclusive", brightness)
 	}
 
 	c := controller{
