@@ -21,7 +21,7 @@ func (h *Logging) Handle(e event.Event) error {
 
 	switch e.Type() {
 	case event.UNKNOWN:
-		log.Errorf("Received an unknown event: %v", e.String)
+		log.Errorf("Received an unknown event: %v", e.String())
 	case event.AUTHORIZED:
 		log.Infof("%v was authorized for '%v'", e.UID(), h.permission)
 	case event.UNAUTHORIZED:

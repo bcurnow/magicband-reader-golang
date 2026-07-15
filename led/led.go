@@ -193,7 +193,6 @@ func (c *controller) Spin(color Color, reverse bool, effectLength int, stop <-ch
 			c.ColorChase(color, 1250*time.Microsecond, reverse, effectLength)
 		}
 	}
-	return nil
 }
 
 func (c *controller) handleDefaults() {

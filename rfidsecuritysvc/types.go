@@ -33,8 +33,8 @@ type Sound struct {
 
 type Color struct {
 	Int  int    `json:"int"`
-	Hex  string `json:hex`
-	Html string `json:html`
+	Hex  string `json:"hex"`
+	Html string `json:"html"`
 }
 
 type MediaConfig struct {
