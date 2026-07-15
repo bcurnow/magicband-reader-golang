@@ -20,11 +20,11 @@ func (h *Spin) Handle(e event.Event) error {
 	stop := make(chan bool)
 	context.State["stopSpinning"] = stop
 
-	runAsync("spinning", func() {
-		context.LEDController.Spin(led.WHITE, reverseSpin, colorChaseWidth, stop)
+	return runAsync("spinning", func() {
+		if err := context.LEDController.Spin(led.WHITE, reverseSpin, colorChaseWidth, stop); err != nil {
+			log.Errorf("spin: failed to spin: %v", err)
+		}
 	})
-
-	return nil
 }
 
 func init() {

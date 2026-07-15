@@ -18,11 +18,11 @@ func (h *AuthSound) Handle(e event.Event) error {
 	log.Trace("Playing the auth sound")
 	switch e.Type() {
 	case event.AUTHORIZED:
-		runAsync("authSoundPlaying", func() {
+		return runAsync("authSoundPlaying", func() {
 			context.AudioController.Play(h.resolveSound())
 		})
 	case event.UNAUTHORIZED:
-		runAsync("authSoundPlaying", func() {
+		return runAsync("authSoundPlaying", func() {
 			context.AudioController.Play(h.unauthSound)
 		})
 	}

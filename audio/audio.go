@@ -58,6 +58,9 @@ func NewController(volume float64, base float64, cache Cache, authorizedSoundNam
 		return nil, err
 	}
 	buffer, err := c.loadFile(f)
+	if err != nil {
+		return nil, err
+	}
 	c.authorizedSound = buffer
 
 	f, err = cache.Get(readSoundName)
@@ -88,7 +91,11 @@ func (c *controller) Load(sound *rfidsecuritysvc.Sound) (*beep.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Warnf("Load: failed to close %v: %v", f.Name(), err)
+		}
+	}()
 	soundBuffer, err := c.loadFile(f)
 	if err != nil {
 		return nil, err
@@ -136,7 +143,11 @@ func (c *controller) loadFile(f *os.File) (*beep.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer wavStreamer.Close()
+	defer func() {
+		if err := wavStreamer.Close(); err != nil {
+			log.Warnf("loadFile: failed to close wav streamer: %v", err)
+		}
+	}()
 
 	var streamer beep.Streamer = wavStreamer
 
@@ -153,7 +164,9 @@ func (c *controller) loadFile(f *os.File) (*beep.Buffer, error) {
 		// Because we need to support multiple, potentially user provided sound files
 		// We're going to choose a default buffer size (5K)  that should be sufficient
 		// to stream any of the files.
-		speaker.Init(format.SampleRate, 5*1024)
+		if err := speaker.Init(format.SampleRate, 5*1024); err != nil {
+			return nil, err
+		}
 	}
 
 	// Read the file into memory, these are very small files

@@ -14,7 +14,9 @@ func (h *StopStatus) Handle(e event.Event) error {
 	waitForAsync("authSoundPlaying")
 	waitForAsync("showStatus")
 
-	context.LEDController.FadeOff(fadeEffectDelay)
+	if err := context.LEDController.FadeOff(fadeEffectDelay); err != nil {
+		return err
+	}
 	log.Trace("auth sound has stopped")
 	return nil
 }

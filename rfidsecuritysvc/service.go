@@ -59,7 +59,11 @@ func (s *service) Get(urlString string, requiredStatusCode int, jsonStruct inter
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			log.Warnf("Get: failed to close response body: %v", err)
+		}
+	}()
 
 	if response.StatusCode != requiredStatusCode {
 		return fmt.Errorf("bad response from '%v', expected %v but received %v", url, requiredStatusCode, response.StatusCode)

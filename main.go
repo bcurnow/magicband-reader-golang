@@ -41,13 +41,17 @@ func main() {
 		close(osSignals)
 		router.Close()
 		reader.Close()
-		context.Close()
+		if err := context.Close(); err != nil {
+			log.Errorf("Error closing context: %v", err)
+		}
 		close(shutdown)
 	}()
 
 	//Blink the LED strip to indicate that the software is started and we're reading
 	//the UID
-	context.LEDController.Blink(led.WHITE, blinkIterations, blinkDelay)
+	if err := context.LEDController.Blink(led.WHITE, blinkIterations, blinkDelay); err != nil {
+		log.Errorf("Error blinking startup indicator: %v", err)
+	}
 	log.Info("Waiting for MagicBand...")
 
 	// There's an issue with the library we're using that I didn't see in the Python version
@@ -87,7 +91,9 @@ func main() {
 		// uid will be "" if the reader was shutdown due to an OS signal
 		// we only want to route the uid once so only route if it's a different uid
 		if uid != "" && uid != lastUid {
-			router.Route(event.NewEvent(uid, event.UNKNOWN))
+			if err := router.Route(event.NewEvent(uid, event.UNKNOWN)); err != nil {
+				log.Errorf("Error routing event: %v", err)
+			}
 			lastUid = uid
 			uidCleanup.Reset(uidCleanupPeriod)
 		}

@@ -63,7 +63,9 @@ func NewReader(spiPort string, resetPin gpio.PinOut, irqPin gpio.PinIn) (*reader
 	}
 
 	// Setting the antenna signal strength per the example code
-	mfrc522.SetAntennaGain(5)
+	if err := mfrc522.SetAntennaGain(5); err != nil {
+		return nil, err
+	}
 
 	reader.mfrc522 = mfrc522
 
@@ -75,7 +77,9 @@ func (r *reader) Close() {
 	r.closed = true
 	// Halt the device before we lock, this will stop any in-progress reads
 	log.Trace("Halting the device")
-	r.mfrc522.Halt()
+	if err := r.mfrc522.Halt(); err != nil {
+		log.Warnf("Close: failed to halt device: %v", err)
+	}
 	log.Trace("Device halted")
 
 	//Make sure to lock before we close the underlying port or we'll cause a SIGSEGV
@@ -85,7 +89,9 @@ func (r *reader) Close() {
 	log.Trace("Lock acquired")
 	//Close the underlying SPI port
 	log.Trace("Closing the portCloser")
-	r.portCloser.Close()
+	if err := r.portCloser.Close(); err != nil {
+		log.Warnf("Close: failed to close port: %v", err)
+	}
 	log.Trace("Reader closed")
 }
 

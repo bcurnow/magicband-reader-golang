@@ -66,7 +66,9 @@ func NewController(brightness int, outerRingSize int, innerRingSize int, stripTy
 	}
 
 	c.strip = dev
-	c.strip.Init()
+	if err := c.strip.Init(); err != nil {
+		return nil, err
+	}
 	return &c, nil
 }
 
@@ -148,8 +150,7 @@ func (c *controller) FadeOff(delay time.Duration) error {
 
 func (c *controller) ColorChase(color Color, delay time.Duration, reverse bool, effectLength int) error {
 	c.setBrightness(c.brightness)
-	var on int = 0
-	var off int = 0
+	var on, off int
 	for i := 0; i < c.outerRingSize+effectLength+1; i++ {
 		if i <= c.outerRingSize {
 			on = i
@@ -182,15 +183,23 @@ func (c *controller) ColorChase(color Color, delay time.Duration, reverse bool, 
  * interval until it receives on the stop channel.
  */
 func (c *controller) Spin(color Color, reverse bool, effectLength int, stop <-chan bool) error {
-	c.ColorChase(color, 10*time.Millisecond, reverse, effectLength)
-	c.ColorChase(color, 5*time.Millisecond, reverse, effectLength)
-	c.ColorChase(color, 2500*time.Microsecond, reverse, effectLength)
+	if err := c.ColorChase(color, 10*time.Millisecond, reverse, effectLength); err != nil {
+		return err
+	}
+	if err := c.ColorChase(color, 5*time.Millisecond, reverse, effectLength); err != nil {
+		return err
+	}
+	if err := c.ColorChase(color, 2500*time.Microsecond, reverse, effectLength); err != nil {
+		return err
+	}
 	for {
 		select {
 		case <-stop:
 			return nil
 		default:
-			c.ColorChase(color, 1250*time.Microsecond, reverse, effectLength)
+			if err := c.ColorChase(color, 1250*time.Microsecond, reverse, effectLength); err != nil {
+				return err
+			}
 		}
 	}
 }

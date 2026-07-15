@@ -19,12 +19,16 @@ func (h *ShowStatus) Handle(e event.Event) error {
 	log.Trace("Showing status")
 	switch e.Type() {
 	case event.AUTHORIZED:
-		runAsync("showStatus", func() {
-			context.LEDController.FadeOn(resolveColor(), fadeEffectDelay)
+		return runAsync("showStatus", func() {
+			if err := context.LEDController.FadeOn(resolveColor(), fadeEffectDelay); err != nil {
+				log.Errorf("showStatus: failed to fade on: %v", err)
+			}
 		})
 	case event.UNAUTHORIZED:
-		runAsync("showStatus", func() {
-			context.LEDController.FadeOn(led.BLUE, fadeEffectDelay)
+		return runAsync("showStatus", func() {
+			if err := context.LEDController.FadeOn(led.BLUE, fadeEffectDelay); err != nil {
+				log.Errorf("showStatus: failed to fade on: %v", err)
+			}
 		})
 	}
 	return nil

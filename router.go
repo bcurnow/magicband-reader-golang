@@ -33,7 +33,9 @@ type router struct {
 
 func NewRouter(listenAddress string, listenPort int) (*router, error) {
 	router := router{listenAddress: listenAddress, listenPort: listenPort}
-	router.init()
+	if err := router.init(); err != nil {
+		return nil, err
+	}
 	return &router, nil
 }
 
@@ -44,12 +46,13 @@ func (r *router) Route(event event.Event) error {
 		// There is a web request waiting for an event
 		r.webChannel <- event
 		log.Tracef("Web Route complete, state: %#v", readerctx.State)
+		return nil
 	default:
 		// There is no web request waiting, send to handlers
-		r.handle(event)
+		err := r.handle(event)
 		log.Tracef("Default Route complete, state: %#v", readerctx.State)
+		return err
 	}
-	return nil
 }
 
 func (r *router) Close() {
@@ -113,7 +116,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 		parsedInt, err := strconv.ParseInt(vars["timeout"][0], 0, 64)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			writeResponse(w, []byte(err.Error()))
 			return
 		}
 		timeout = time.Duration(parsedInt) * time.Second
@@ -122,7 +125,7 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 	start := time.Now()
 	if err := sendWebRequest(r, timeout); err != nil {
 		w.WriteHeader(http.StatusRequestTimeout)
-		w.Write([]byte(TimeoutError{}.Error()))
+		writeResponse(w, []byte(TimeoutError{}.Error()))
 		log.Debug("handleWebRequest: Request timed out sending on channel")
 		return
 	}
@@ -141,14 +144,20 @@ func handleWebRequest(r *router, w http.ResponseWriter, req *http.Request) {
 		select {
 		case <-timer.C:
 			w.WriteHeader(http.StatusRequestTimeout)
-			w.Write([]byte(TimeoutError{}.Error()))
+			writeResponse(w, []byte(TimeoutError{}.Error()))
 			log.Debug("handleWebRequest: Request timed out")
 			return
 		case event := <-r.webChannel:
 			log.Debugf("handleWebRequest: Returned '%v'", event.UID())
-			w.Write([]byte(event.UID()))
+			writeResponse(w, []byte(event.UID()))
 			return
 		}
+	}
+}
+
+func writeResponse(w http.ResponseWriter, body []byte) {
+	if _, err := w.Write(body); err != nil {
+		log.Warnf("writeResponse: failed to write response: %v", err)
 	}
 }
 
