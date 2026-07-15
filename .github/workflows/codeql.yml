@@ -34,24 +34,16 @@ jobs:
       with:
         go-version-file: go.mod
 
-    # Autobuild can't handle this module: the led package wraps the rpi_ws281x C library
-    # via cgo and requires it pre-installed at /usr/local/lib|include before `go build`
-    # will even type-check, so we build it manually here (same as the CI workflow and the
-    # Dockerfile's lib_builder stage) instead of relying on autobuild.
+    # Autobuild can't handle this module: the audio package's oto dependency links against
+    # ALSA on Linux regardless of architecture, so `go build` needs libasound2-dev present
+    # before it will even type-check. We build manually here (same as the CI workflow)
+    # instead of relying on autobuild. Note the led package's rpi_ws281x cgo binding gates
+    # its hardware implementation behind `//go:build arm || arm64` and falls back to a
+    # pure-Go simulator stub here, so no C library install is needed on this amd64 runner.
     - name: Install native build dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install --no-install-recommends -y \
-          build-essential \
-          cmake \
-          libasound2-dev
-
-    - name: Build and install rpi_ws281x C library
-      run: |
-        git clone --depth 1 https://github.com/jgarff/rpi_ws281x.git /tmp/rpi_ws281x
-        cmake -S /tmp/rpi_ws281x -B /tmp/rpi_ws281x/build -D BUILD_SHARED=OFF -D BUILD_TEST=OFF
-        cmake --build /tmp/rpi_ws281x/build
-        sudo cmake --install /tmp/rpi_ws281x/build
+        sudo apt-get install --no-install-recommends -y libasound2-dev
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
