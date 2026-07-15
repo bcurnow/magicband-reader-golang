@@ -56,7 +56,7 @@ jobs:
       # workflow. only-new-issues scopes failures to lines touched by the current
       # push/PR so CI can go green today; the backlog gets cleaned up incrementally.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           args: --build-tags=no_d2xx
           only-new-issues: true
