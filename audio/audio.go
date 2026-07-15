@@ -6,10 +6,10 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/faiface/beep"
-	"github.com/faiface/beep/effects"
-	"github.com/faiface/beep/speaker"
-	"github.com/faiface/beep/wav"
+	"github.com/gopxl/beep/v2"
+	"github.com/gopxl/beep/v2/effects"
+	"github.com/gopxl/beep/v2/speaker"
+	"github.com/gopxl/beep/v2/wav"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/bcurnow/magicband-reader/rfidsecuritysvc"

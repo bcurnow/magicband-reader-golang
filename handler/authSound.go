@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/faiface/beep"
+	"github.com/gopxl/beep/v2"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/bcurnow/magicband-reader/context"
