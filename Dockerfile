@@ -73,7 +73,7 @@ RUN apt-get update \
 
 USER golang
 
-WORKDIR /go/src/github.com/bcurnow/magicband-reader-golang
+WORKDIR /workspace
 
 FROM dev_image AS bin_builder
 USER root

@@ -2,11 +2,14 @@
 
 SHELL := /bin/bash
 currentDir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-imageName := $(notdir $(patsubst %/,%,$(dir $(currentDir))))
-rootDir := $(abspath ${currentDir}../../../../)
+imageName := $(notdir $(patsubst %/,%,$(currentDir)))
 currentUser := $(shell id -u)
 currentGroup := $(shell id -g)
 binaryName := magicband-reader
+# Must match the dev_image WORKDIR in the Dockerfile.
+containerWorkdir := /workspace
+
+.PHONY: build-docker build-docker-dev run-docker dev run-docker-prod prod build format vet lint test run tidy local clear lr clean
 
 build-docker:
 	docker buildx build \
@@ -25,8 +28,10 @@ build-docker-dev:
 	  -t ${imageName}:latest  \
 	  ${currentDir}
 
+# Mounts the repo itself (the module doesn't need to live at a GOPATH-derived path) at the
+# same path the Dockerfile builds from, so edits on the host are reflected live in the container.
 run-docker:
-	docker run --platform linux/arm/v6 -it --privileged --mount src=/dev,target=/dev,type=bind --mount src=${currentDir}sounds,target=/sounds,type=bind --mount src="${rootDir}",target=/go,type=bind ${imageName}:latest /bin/bash
+	docker run --platform linux/arm/v6 -it --privileged --mount src=/dev,target=/dev,type=bind --mount src=${currentDir}sounds,target=/sounds,type=bind --mount src="${currentDir}",target=${containerWorkdir},type=bind ${imageName}:latest /bin/bash
 
 dev: run-docker
 
@@ -64,3 +69,6 @@ clear:
 	clear
 
 lr: local run
+
+clean:
+	rm -rf bin/
