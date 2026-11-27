@@ -1,7 +1,13 @@
 ARG GO_VERSION=1.25.12
 ARG DEBIAN_VERSION=bookworm
 
-FROM debian:${DEBIAN_VERSION} AS lib_builder
+# The official debian images publish no linux/arm/v6 variant, and the Pi Zero is armv6
+# hard-float, so every stage uses balenalib's armv6 Debian images instead (-build has the
+# toolchain, -run is the slim runtime).
+ARG BUILD_BASE=balenalib/raspberry-pi-debian:${DEBIAN_VERSION}-build
+ARG RUN_BASE=balenalib/raspberry-pi-debian:${DEBIAN_VERSION}-run
+
+FROM ${BUILD_BASE} AS lib_builder
 
 WORKDIR /foundry
 
@@ -18,7 +24,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && cmake --build . \
     && make install
 
-FROM debian:${DEBIAN_VERSION} AS dev_image
+FROM ${BUILD_BASE} AS dev_image
 
 # The official golang image no longer publishes an arm/v5-or-lower manifest entry on
 # Debian bookworm tags (only linux/arm/v7 remains), which breaks
@@ -100,7 +106,7 @@ ENV GOARM=6
 ENV CGO_ENABLED=1
 RUN go build -tags no_d2xx -o /build/magicband-reader
 
-FROM debian:${DEBIAN_VERSION}-slim AS prod_image
+FROM ${RUN_BASE} AS prod_image
 USER root
 
 RUN apt-get update && apt-get -y install --no-install-recommends libasound2
